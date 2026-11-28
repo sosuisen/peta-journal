@@ -310,21 +310,16 @@ public sealed partial class Shell : IDisposable
         var cursors = new List<uint>();
         foreach (var request in requests)
         {
-            switch (request.Effect)
+            // An expression, not a statement: the compiler stops a build that leaves out a kind
+            // (CS8509)
+            Action handle = request.Effect switch
             {
-                case ShellEffect.Render:
-                    Show(border.Changes());
-                    break;
-                case ShellEffect.Navigate { Value: var op }:
-                    Open(op.Url);
-                    break;
-                case ShellEffect.Ui { Value: UiOp.FocusEditor }:
-                    cursors.Add(request.Id);
-                    break;
-                case ShellEffect.Ui { Value: var op }:
-                    Show(op, request.Id);
-                    break;
-            }
+                ShellEffect.Render => () => Show(border.Changes()),
+                ShellEffect.Navigate { Value: var op } => () => Open(op.Url),
+                ShellEffect.Ui { Value: UiOp.FocusEditor } => () => cursors.Add(request.Id),
+                ShellEffect.Ui { Value: var op } => () => Show(op, request.Id),
+            };
+            handle();
         }
         // After the render: the item to put the cursor in may have come with these very requests
         // The order itself is in the view model. It is read again here: no render request has
@@ -343,41 +338,58 @@ public sealed partial class Shell : IDisposable
     /// </summary>
     private void Show(UiOp op, uint id)
     {
-        switch (op)
+        // An expression, not a statement: the compiler stops a build that leaves out a kind
+        // (CS8509). A kind that does nothing is named too, with why
+        Action show = op switch
         {
-            case UiOp.Confirm { Value: var message }:
-                Ask(new Question(id, message, QuestionKind.Confirm));
-                break;
-            case UiOp.ConfirmDestructive { Value: var message }:
-                Ask(new Question(id, message, QuestionKind.ConfirmDestructive));
-                break;
-            // No prompt is shown. The core asks one only for a new page without a name, and
-            // this app has no way to make one: its search box makes a page with the typed name
-            case UiOp.CopyMarkdown { Markdown: var markdown, Ast: var ast }:
+            // Handle answers it after the render, so it never comes here
+            UiOp.FocusEditor => Nothing,
+            // Waits for no answer, and this app does not scroll to the item
+            UiOp.ScrollToItem => Nothing,
+            // The title comes with the view model (Title), so this copy of it is not used
+            UiOp.SetTitle => Nothing,
+            // No view of this app draws an atlas, so there are no folders of one to keep
+            UiOp.SaveAtlasDirs => Nothing,
+            UiOp.CopyMarkdown { Markdown: var markdown, Ast: var ast } => () =>
+            {
                 // The HTML is for other apps (ADR 027). Its links to pages open the web
                 // frontend, as those of a copy made there: this app has no address that
                 // another app opens
                 var html = PetaCore.PetaNative.CopiedHtml(ast, server, View.Config.TagsDir);
                 copy(markdown, html.Length == 0 ? null : html);
-                break;
-            case UiOp.ReadClipboardText:
+            },
+            // The app begins no clipboard write before CopyMarkdown, so there is none to give up
+            UiOp.CopyFailed => Nothing,
+            UiOp.ReadClipboardText => () =>
                 clipboard(text =>
                 {
                     if (!disposed)
                         border.Answer(id, new UiOutput.Text(text));
-                });
-                break;
+                }),
+            // Waits for no answer, and this app has no dialog that shows the message
+            UiOp.Alert => Nothing,
+            UiOp.Confirm { Value: var message } => () =>
+                Ask(new Question(id, message, QuestionKind.Confirm)),
+            UiOp.ConfirmDestructive { Value: var message } => () =>
+                Ask(new Question(id, message, QuestionKind.ConfirmDestructive)),
+            // No prompt is shown. The core asks one only for a new page without a name, and
+            // this app has no way to make one: its search box makes a page with the typed name
+            UiOp.Prompt => Nothing,
             // A new view of the app is a new sticky (ADR 083)
-            case UiOp.OpenNewView { Url: var url }:
-                NewStickyAsked?.Invoke(url);
-                break;
+            UiOp.OpenNewView { Url: var url } => () => NewStickyAsked?.Invoke(url),
             // The bridge has put the address of the server before an address of the server
-            case UiOp.OpenInBrowser { Address: var address }:
+            UiOp.OpenInBrowser { Address: var address } => () =>
+            {
                 if (Uri.TryCreate(address, UriKind.Absolute, out var there))
                     browse(there);
-                break;
-        }
+            },
+            // client-native-bridge answers it with the clock, so it never reaches the app
+            UiOp.LocalNow => Nothing,
+        };
+        show();
     }
+
+    private static void Nothing() { }
 
     public void Dispose()
     {

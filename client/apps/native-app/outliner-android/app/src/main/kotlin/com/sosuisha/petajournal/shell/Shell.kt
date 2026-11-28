@@ -449,9 +449,17 @@ class Shell(
             is UiOp.OpenInBrowser -> open(op.address)
             is UiOp.Prompt,
             is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
-            // The others wait for no answer, such as the title to set and the item to scroll to.
-            // A new view is never asked for: a touch holds no keys (ADR 083)
-            else -> Unit
+            // These wait for no answer, and the app does not use them
+            is UiOp.SetTitle,
+            is UiOp.ScrollToItem -> Unit
+            // The app draws no atlas
+            is UiOp.SaveAtlasDirs -> Unit
+            // The app begins no clipboard write before CopyMarkdown, so there is none to give up
+            is UiOp.CopyFailed -> Unit
+            // Never asked for: a touch holds no keys (ADR 083)
+            is UiOp.OpenNewView -> Unit
+            // client-native-bridge answers it with the clock, so it never reaches the app
+            is UiOp.LocalNow -> Unit
         }
     }
 }

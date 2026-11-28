@@ -522,9 +522,23 @@ public final class Shell: ObservableObject {
             open(address)
         case .prompt, .readClipboardText:
             Shell.must { try border.answer(id, with: .text(nil)) }
-        default:
-            // The others wait for no answer, such as the title to set and the item to scroll to.
-            // A new view is never asked for: a touch holds no keys (ADR 083)
+        // It waits for no answer, and the page shows the title of the view model instead
+        case .setTitle:
+            break
+        // It waits for no answer, and the list scrolls by itself only to the edited item
+        case .scrollToItem:
+            break
+        // The app has no atlas, so it keeps no folders seen as their atlas
+        case .saveAtlasDirs:
+            break
+        // The app writes the clipboard only for CopyMarkdown, so it began no write to give up
+        case .copyFailed:
+            break
+        // Never asked for: a touch holds no keys (ADR 083)
+        case .openNewView:
+            break
+        // client-native-bridge answers it with the clock, so it never reaches the app
+        case .localNow:
             break
         }
     }
