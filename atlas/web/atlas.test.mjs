@@ -100,7 +100,7 @@ test('the menu of a link card or a plain card has Edit, Remove from Atlas and De
 
 // キャンバスの何もない所のメニューは、Add CardとAdd Calloutである
 test('the menu of the canvas has Add Card and Add Callout', () => {
-  assert.deepEqual(plain(atlas.CANVAS_MENU), ['Add Card', 'Add Callout']);
+  assert.deepEqual(plain(atlas.canvasMenu()), ['Add Card', 'Add Callout']);
 });
 
 // 円で描くグループ
