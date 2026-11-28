@@ -53,7 +53,7 @@
 
 <h1>検証の仕組み</h1>
 <p>この文書は、peta-journalのコードを、何で、どこで確かめるかをまとめる。</p>
-<p class="date">更新日：2026-11-28</p>
+<p class="date">更新日：2026-11-29</p>
 
 <h2>方針</h2>
 <ul>
@@ -95,6 +95,34 @@
   <li><code>outliner-ios</code>のカバレッジ：<code>client/apps/native-app/outliner-ios/coverage.sh</code>。<br>測らないファイルと、その理由もここに書く。</li>
   <li><code>outliner-emacs</code>のElispのカバレッジ：<code>client/apps/emacs/outliner/coverage.mjs</code>と<code>lisp/test/peta-journal-coverage.el</code>。<br>道具（undercover.el）の版もここに書く。測らないファイルはない。</li>
 </ul>
+
+<h2>型（Make Illegal States Unrepresentable）</h2>
+<p>ありえない状態は、型で表せないようにする。<br>
+種類を持つ型（Rustの<code>enum</code>、Swiftの<code>enum</code>、Kotlinの<code>sealed class</code>、C#の<code>closed record</code>）は、どの言語でも、コンパイラに網羅を確かめさせる。<br>
+種類を足したら、それを扱うすべての場所で、扱いを決めるまでコンパイルが通らないようにするためである。<br>
+テストやshell-checkで見つけるより早く、確実に止まる。</p>
+<ul>
+  <li>種類で分ける<code>match</code>、<code>switch</code>、<code>when</code>には、どれにも当たらない種類をまとめて受ける分岐（Rustの<code>_ =&gt;</code>、Swiftの<code>default:</code>、Kotlinの<code>else -&gt;</code>）を書かない。<br>
+  何もしない種類も、名前を書いて分岐を作り、何もしない理由を1行のコメントにする。</li>
+  <li>C#では、生成する型を<code>closed record</code>にし（<code>client-native-bridge/src/codegen.rs</code>の<code>CLOSED_RECORDS</code>、ADR 041）、<code>switch</code>文ではなく<code>switch</code>式で分ける。<br>
+  種類が抜けた<code>switch</code>式（CS8509）は、<code>stickies-win/Directory.Build.props</code>でエラーにしている。<br>
+  <code>switch</code>文は、網羅を確かめない。</li>
+  <li>Kotlinの<code>when</code>は、<code>sealed</code>の型で分ければ、文でも網羅を求める。</li>
+</ul>
+<p>今の状態は次のとおりである。</p>
+<p class="legend"><span class="swatch ok" style="margin-left:0"></span>網羅をコンパイラが確かめる<span class="swatch" style="margin-left:16px"></span>まだ確かめていない</p>
+<table>
+  <thead>
+    <tr><th>型</th><th>扱う場所</th><th>状態</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Effect</code>（コアの効果、6種類）</td><td>Rustのシェル（<code>client-web-bridge</code>、<code>client-native-bridge</code>、<code>outliner-emacs</code>）</td><td class="ok">網羅的な<code>match</code></td></tr>
+    <tr><td><code>UiOp</code>（画面の操作、14種類）</td><td>Rustのシェル（Webの<code>lanes.rs</code>の<code>lane_of</code>、Emacs版の<code>shell.rs</code>の<code>on_ui_op</code>）</td><td class="ok">網羅的な<code>match</code></td></tr>
+    <tr><td><code>UiOp</code></td><td>4つのネイティブアプリ（<code>client-native-bridge</code>は、ほとんどを種類を見ずにアプリへ渡す）</td><td class="missing">まとめて受ける分岐がある（#1312）<span class="note">Swiftは<code>default:</code>、Kotlinは<code>else -&gt;</code>、C#は<code>switch</code>文で、<code>UiOp</code>は<code>closed record</code>でもない。種類を足してもコンパイルが通り、新しい種類は黙って何もされない</span></td></tr>
+    <tr><td><code>ShellEffect</code>（ネイティブへ渡る効果）</td><td><code>stickies-win</code>（C#）</td><td class="missing"><code>switch</code>文で、<code>closed record</code>でもない（#1312）</td></tr>
+    <tr><td><code>RichBlock</code>、<code>RichLink</code>、<code>RowChange</code>、<code>HeadingChange</code>、<code>PageChange</code>、<code>SearchChange</code>、<code>Panel</code></td><td><code>stickies-win</code>（C#）</td><td class="ok"><code>closed record</code>と<code>switch</code>式、CS8509はエラー（ADR 041、ADR 042）</td></tr>
+  </tbody>
+</table>
 
 <h2>シェルがコアを通っているかのチェック（shell-check）</h2>
 <p>shell-checkは、<code>client/tools/shell-check</code>にある。<br>
