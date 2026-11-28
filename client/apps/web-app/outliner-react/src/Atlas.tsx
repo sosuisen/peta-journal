@@ -302,11 +302,12 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
     <div className="atlas">
       {/* The whole list scrolls, however many wait */}
       <div className="atlas-unplaced">
+        <UnplacedGroup title="Pages" cards={waiting.filter(c => !c.added)} />
+        <hr className="atlas-unplaced-separator" />
         <UnplacedGroup
-          title="Not Added"
-          cards={waiting.filter(c => !c.added)}
+          title="Not on Atlas"
+          cards={waiting.filter(c => c.added)}
         />
-        <UnplacedGroup title="No Place" cards={waiting.filter(c => c.added)} />
       </div>
       {/* The browser's own menu would cover the menu of a card */}
       <div

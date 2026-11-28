@@ -958,6 +958,13 @@ app-page .page-title:hover {
   flex-direction: column;
   gap: 8px;
 }
+/* Between the pages and what is not on the atlas */
+.atlas-unplaced-separator {
+  width: 100%;
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid #e0e0e0;
+}
 .atlas-unplaced-title {
   font-size: 12px;
   font-weight: 600;
