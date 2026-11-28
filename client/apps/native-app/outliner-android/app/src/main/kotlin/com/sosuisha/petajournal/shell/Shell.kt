@@ -452,7 +452,7 @@ class Shell(
             // These wait for no answer, and the app does not use them
             is UiOp.SetTitle,
             is UiOp.ScrollToItem -> Unit
-            // Only the web draws an atlas (ADR 093)
+            // The app draws no atlas
             is UiOp.SaveAtlasDirs -> Unit
             // The app begins no clipboard write before CopyMarkdown, so there is none to give up
             is UiOp.CopyFailed -> Unit
