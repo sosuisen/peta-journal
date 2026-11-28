@@ -84,3 +84,25 @@ test('a dragged group can leave each group around it with Ctrl', () => {
   const held = atlas.heldGroups({ around: ['inner', 'outer'] });
   assert.deepEqual(sorted(held), ['inner', 'outer']);
 });
+
+// 円で描くグループ
+const card = (...groups) => ({ groups, callout: false });
+const callout = (...groups) => ({ groups, callout: true });
+
+// 子がコールアウトだけのグループは、円で描く
+test('a group whose children are only callouts is drawn as a circle', () => {
+  const circles = atlas.circleGroups([callout('g'), callout('g'), card('other')]);
+  assert.deepEqual(sorted(circles), ['g']);
+});
+
+// カードかグループを子に持つグループは、コールアウトの子があっても、円で描かない
+test('a group with a card or a group among its children is not drawn as a circle', () => {
+  const circles = atlas.circleGroups([
+    callout('mixed'),
+    card('mixed'),
+    callout('outer'),
+    callout('outer', 'inner'),
+    card('deep', 'carded'),
+  ]);
+  assert.deepEqual(sorted(circles), ['inner']);
+});
