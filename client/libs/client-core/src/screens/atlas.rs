@@ -210,8 +210,9 @@ fn placeable(model: &Model, id: &str) -> Option<(Item, Option<(f64, f64)>)> {
 /// where it was grabbed, so it gives the center rather than the drop point. The point is saved
 /// counted from the item it is under (ADR 053). The item moves at once; a refusal of the server
 /// puts it back. A parent takes all that is under it along, as their bounds are counted from
-/// it and do not change. An item under an item that is not drawn is not placed: there is no
-/// place to count its own from. A page of the directory that has no card yet gets one there.
+/// it and do not change. An item under an item that is not drawn has no place to count its
+/// own from: it comes out to the top of the outline and is placed there ([`taken_to_top`]).
+/// A page of the directory that has no card yet gets a card there.
 pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
     if !x.is_finite() || !y.is_finite() {
         return done();
@@ -220,19 +221,65 @@ pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
         return add_page_card(model, &card_id, x, y);
     };
     let Some((frame_x, frame_y)) = frame else {
-        return done();
+        return change(model, taken_to_top(model, &item, x, y));
     };
-    // A card keeps its size when it moves; whole pixels keep the stored value short
-    let (width, height) = bounds_of(&item)
+    let bounds = placed_at(&item, x - frame_x, y - frame_y);
+    save_bounds(model, &item, bounds)
+}
+
+/// The bounds of an item placed with its center at a point. It keeps its size when it moves;
+/// whole pixels keep the stored value short.
+fn placed_at(item: &Item, x: f64, y: f64) -> Bounds {
+    let (width, height) = bounds_of(item)
         .map(|b| (b.width, b.height))
         .unwrap_or((AUTO_WIDTH, CARD_HEIGHT));
-    let bounds = Bounds {
-        x: (x - frame_x).round(),
-        y: (y - frame_y).round(),
+    Bounds {
+        x: x.round(),
+        y: y.round(),
         width,
         height,
+    }
+}
+
+/// The operations that make an item under an item that is not drawn a card of the top, with
+/// its center at the point of the canvas (ADR 053). It leaves its parents: it goes behind the
+/// tree of the outermost of them, at level 1, as a card taken out of a parent does, and its
+/// bounds are counted from the center of the canvas. The items under it go with it, each as
+/// deep under it as before. The parent it leaves loses its side when nothing stays under it.
+fn taken_to_top(model: &Model, item: &Item, x: f64, y: f64) -> Vec<BatchOpInput> {
+    let Some(parent) = parent_of(model, item) else {
+        return Vec::new();
     };
-    save_bounds(model, &item, bounds)
+    let mut outermost = parent;
+    while let Some(above) = parent_of(model, outermost) {
+        outermost = above;
+    }
+    let below: Vec<&Item> = under(model, item).collect();
+    let leaving: Vec<&Item> = std::iter::once(item).chain(below.iter().copied()).collect();
+    let leveled = |item: &Item, bounds: Option<Bounds>| BatchOpInput::Update {
+        id: item.id.clone(),
+        body: None,
+        level: Some(item.level - leaving[0].level + 1),
+        collapsed: None,
+        task: None,
+        properties: bounds
+            .map(|bounds| {
+                let value = PropertyValue::Text(bounds.to_string());
+                (BOUNDS_KEY.to_string(), value)
+            })
+            .into_iter()
+            .collect(),
+        dropped_properties: Vec::new(),
+    };
+    let mut ops = vec![leveled(item, Some(placed_at(item, x, y)))];
+    ops.extend(below.iter().map(|item| leveled(item, None)));
+    ops.push(BatchOpInput::Move {
+        ids: leaving.iter().map(|item| item.id.clone()).collect(),
+        page_id: item.page_id.clone(),
+        position: ItemPosition::after(&last_staying(model, outermost, &leaving).id),
+    });
+    ops.extend(side_dropped(model, parent, &leaving));
+    ops
 }
 
 /// Gives a page of the directory that no card links to a card with its center at the point:
