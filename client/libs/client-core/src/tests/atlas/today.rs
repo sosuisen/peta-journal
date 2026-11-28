@@ -51,7 +51,7 @@ fn a_card_to_today_on_the_root_atlas_is_a_card_with_a_target() {
 #[test]
 fn a_parent_that_links_to_today_opens_today() {
     let h = root_atlas_of(vec![
-        root_item("pa", 1, "[[today]]", None),
+        root_item("pa", 1, "[[today]]", Some("0,0,0,40")),
         root_item("n", 2, "note", Some("0,0,0,40")),
     ]);
 
