@@ -18,6 +18,10 @@
 // a card for any page, which the core keeps as a wiki link in the atlas page.
 // A callout or a link card is selected, dragged and scaled as a card is. A callout is not put
 // into a group or taken out of one on the canvas.
+// A drop with Ctrl makes the dragged cards siblings of what they are let go on: on a card,
+// a group is made of them, and in the area of a group, they join it. A drop with Shift and
+// Ctrl makes them children of the card they are let go on, and does nothing more in the area
+// of a group. What would take the drop shows it in a color of its own for each of the two.
 // A double click on a callout or a link card, or its menu, opens its dialog.
 // The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of pixi-ui.js beside this file.
 // A canvas that is not editable only shows the atlas, as a static site does: a drag with
@@ -48,16 +52,21 @@ const LINE_HEIGHT = 16;
 const MAX_TEXT_ZOOM = 3;
 // How long the wheel must rest before the labels are drawn again for the new zoom, in ms
 const SHARPEN_DELAY = 150;
-// The color a card takes while cards held with Ctrl are over it, to join its group. Red, as a
-// light blue was hard to see on the blue of the selection and the blobs.
-const GROUP_TARGET_TINT = 0xef4444;
+// What takes a drop shows it just before, and its color tells what the drop will do (ADR 053).
+// With Ctrl, the dragged cards become siblings of what they are let go on: a card under the
+// pointer and the frame of a group take this red. Red, as a light blue was hard to see on the
+// blue of the selection and the blobs.
+const SIBLING_COLOR = 0xef4444;
+// With Shift and Ctrl, the dragged cards become children of the card they are let go on: that
+// card takes this green. A group takes no color then, as nothing happens on it.
+const CHILD_COLOR = 0x16a34a;
 // How far the outline of a group keeps away from the cards in it
 const GROUP_PADDING = 14;
 // How much the background of a card hides what lies behind it, while it is a drop target
 const CARD_ALPHA = 0.4;
 // How strong the icon behind the label of a card is
 const ICON_ALPHA = 0.5;
-// The frame of a group while the cards dragged out of it with Ctrl are still in it
+// The frame of the group of the dragged cards while they are still in it with Ctrl held
 const GROUP_HOLD_COLOR = 0x1d4ed8;
 // The space between the label of a card and its sides
 const CARD_PADDING = 12;
@@ -183,6 +192,10 @@ window.AtlasCanvas = class AtlasCanvas {
         this.resizeObserver = new ResizeObserver(() => this.app.resize());
         this.resizeObserver.observe(host);
         this.listenForHand();
+        // On the window: the canvas does not hold the keyboard focus
+        this.dropKeys = event => this.followDropKeys(event);
+        window.addEventListener('keydown', this.dropKeys);
+        window.addEventListener('keyup', this.dropKeys);
         this.center();
         return labelFontReady;
       })
@@ -978,17 +991,16 @@ window.AtlasCanvas = class AtlasCanvas {
       : null;
   }
 
-  // An unplaced card dragged over the canvas from the list beside it. With Ctrl, the card or
-  // the area of a group under the pointer shows that the card would join its group, as for
-  // cards dragged on the canvas.
-  dragOverFromList(clientX, clientY, ctrl) {
+  // An unplaced card dragged over the canvas from the list beside it. With Ctrl, or with Shift
+  // and Ctrl, the card or the area of a group under the pointer shows what the drop would do,
+  // as for cards dragged on the canvas.
+  dragOverFromList(clientX, clientY, ctrl, shift = false) {
     if (!this.world) {
       return;
     }
     this.listDrag ??= { origins: [], target: null, join: null };
-    const e = this.listDragPointer(clientX, clientY, ctrl);
-    this.showJoinGroup(this.listDrag, ctrl ? e : null);
-    this.showGroupTarget(this.listDrag, this.groupTargetAt(this.listDrag, e));
+    const e = this.listDragPointer(clientX, clientY, ctrl, shift);
+    this.showDropTargets(this.listDrag, e);
   }
 
   // The unplaced card has left the canvas or been let go: nothing is shown as its group
@@ -996,13 +1008,12 @@ window.AtlasCanvas = class AtlasCanvas {
     if (!this.listDrag) {
       return;
     }
-    this.showJoinGroup(this.listDrag, null);
-    this.showGroupTarget(this.listDrag, null);
+    this.showDropTargets(this.listDrag, null);
     this.listDrag = null;
   }
 
-  // The card whose group an unplaced card let go here with Ctrl joins: the card under the
-  // pointer. Null without Ctrl.
+  // The card under the pointer that takes an unplaced card let go here with Ctrl, or with Shift
+  // and Ctrl. Null without Ctrl.
   groupTargetFromList(clientX, clientY, ctrl) {
     if (!this.world || !ctrl) {
       return null;
@@ -1023,9 +1034,52 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // A point of the page as the pointer events of the canvas give it
-  listDragPointer(clientX, clientY, ctrl) {
+  listDragPointer(clientX, clientY, ctrl, shift = false) {
     const rect = this.app.canvas.getBoundingClientRect();
-    return { global: new PIXI.Point(clientX - rect.left, clientY - rect.top), ctrlKey: ctrl };
+    return { global: new PIXI.Point(clientX - rect.left, clientY - rect.top), ctrlKey: ctrl, shiftKey: shift };
+  }
+
+  // What would take the cards of a drag if they were let go now shows it, in the color of what
+  // the drop would do: with Ctrl the card under the pointer, or else the area of a group there,
+  // in the color of a sibling, and with Shift and Ctrl the card under the pointer in the color
+  // of a child. Without `e`, or without these keys, nothing shows.
+  showDropTargets(drag, e) {
+    const mode = e ? dropMode(e) : null;
+    const target = mode ? this.groupTargetAt(drag, e) : null;
+    this.showJoinGroup(drag, mode === 'sibling' && !target ? e : null);
+    this.showGroupTarget(drag, target, mode === 'child' ? CHILD_COLOR : SIBLING_COLOR);
+  }
+
+  // The keys of a drop may be pressed or let go while the pointer rests: what would take the
+  // drop is shown again for the keys as they are now
+  followDropKeys(event) {
+    const drag = this.drag;
+    if (!drag?.moved || !drag.pointer || !['Control', 'Meta', 'Shift'].includes(event.key)) {
+      return;
+    }
+    this.showDrag(drag, {
+      global: drag.pointer,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      shiftKey: event.shiftKey,
+    });
+  }
+
+  // The groups and the targets of a drag of cards on the canvas, for where the pointer is and
+  // the keys that are held
+  showDrag(drag, e) {
+    // Callouts alone touch no group
+    const mode = drag.origins.length > 0 ? dropMode(e) : null;
+    // Only a drop with Ctrl alone can take the cards out of their groups
+    const ctrl = mode === 'sibling';
+    this.drawGroups(drag, ctrl);
+    drag.ctrlShape = ctrl;
+    this.showDropTargets(drag, mode ? e : null);
+    if (ctrl) {
+      this.showHeldGroups(drag, e);
+    } else {
+      drag.outside = null;
+    }
   }
 
   // onGroup(cardIdsJson, targetId) puts the cards dropped with Ctrl on a card into its group
@@ -1393,7 +1447,7 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // While cards are dragged with Ctrl, the area of another group under the pointer is the
-  // group they would join: its frame shows, in the color of a held group. Without `e`, no
+  // group they would join: its frame shows, in the color of a sibling. Without `e`, no
   // group is to be joined. The topmost area wins, as it is drawn over the others: of groups
   // one inside the other, the innermost.
   showJoinGroup(drag, e) {
@@ -1404,7 +1458,7 @@ window.AtlasCanvas = class AtlasCanvas {
     }
     if (join) {
       join.frame.visible = true;
-      join.frame.tint = GROUP_HOLD_COLOR;
+      join.frame.tint = SIBLING_COLOR;
     }
     drag.join = join;
   }
@@ -1488,18 +1542,9 @@ window.AtlasCanvas = class AtlasCanvas {
       for (const o of [...drag.origins, ...drag.extras]) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
-      // Callouts alone touch no group
-      const ctrl = (e.ctrlKey || e.metaKey) && drag.origins.length > 0;
-      this.drawGroups(drag, ctrl);
-      drag.ctrlShape = ctrl;
-      if (ctrl) {
-        this.showJoinGroup(drag, e);
-        this.showHeldGroups(drag, e);
-      } else {
-        this.showJoinGroup(drag, null);
-        drag.outside = null;
-      }
-      this.showGroupTarget(drag, ctrl ? this.groupTargetAt(drag, e) : null);
+      // A plain copy: `global` is reused for the next event
+      drag.pointer = new PIXI.Point(e.global.x, e.global.y);
+      this.showDrag(drag, e);
     });
     const end = e => {
       const drag = this.drag;
@@ -1510,9 +1555,10 @@ window.AtlasCanvas = class AtlasCanvas {
       view.cursor = 'grab';
       if (drag.moved) {
         this.showFrames(null);
-        const ctrl = (e.ctrlKey || e.metaKey) && drag.origins.length > 0;
-        const target = ctrl ? this.groupTargetAt(drag, e) : null;
-        this.showGroupTarget(drag, null);
+        const mode = drag.origins.length > 0 ? dropMode(e) : null;
+        const ctrl = mode === 'sibling';
+        const target = mode ? this.groupTargetAt(drag, e) : null;
+        this.showDropTargets(drag, null);
         // The cards have moved with the pointer: they lie where they show. A position is the
         // center of a card, as the pivot is there, and the center of the character of a
         // callout. The core takes the place on the canvas, not the one in the frame: it counts
@@ -1521,10 +1567,13 @@ window.AtlasCanvas = class AtlasCanvas {
         const at = view => onCanvas(view.frameNode, view.x, view.y);
         const places = drag.origins.map(o => [o.view.cardData.id, at(o.view).x, at(o.view).y]);
         const moves = drag.extras.map(o => [o.view.saveMove, at(o.view).x, at(o.view).y]);
-        // A card let go on a card joins the group of that card; let go in the area of another
-        // group, it goes under the item of that group
-        const targetId = target ? target.cardData.id : null;
-        const parentId = !targetId && ctrl && drag.join ? drag.join.label : null;
+        // With Ctrl, a card let go on a card joins the group of that card, and let go in the
+        // area of another group, it goes under the item of that group. With Shift and Ctrl, a
+        // card let go on a card goes under that card, and nothing else changes.
+        const join = ctrl ? this.joinAreaAt(drag, e) : null;
+        const targetId = ctrl && target ? target.cardData.id : null;
+        const childOf = mode === 'child' && target ? target.cardData.id : null;
+        const parentId = childOf ?? (!targetId && join ? join.label : null);
         // Joining a group takes the cards out of their own; only the cards let go outside their
         // group without joining another leave it
         const leavers =
@@ -1598,15 +1647,14 @@ window.AtlasCanvas = class AtlasCanvas {
     return null;
   }
 
-  showGroupTarget(drag, target) {
-    if (drag.target === target) {
-      return;
-    }
-    if (drag.target && !drag.target.destroyed) {
+  // The card that would take the drop shows its frame in the color of what the drop would do
+  showGroupTarget(drag, target, color = SIBLING_COLOR) {
+    if (drag.target && drag.target !== target && !drag.target.destroyed) {
       drag.target.cardFrame.visible = false;
     }
     if (target) {
       target.cardFrame.visible = true;
+      target.cardFrame.tint = color;
     }
     drag.target = target;
   }
@@ -1628,11 +1676,25 @@ window.AtlasCanvas = class AtlasCanvas {
     clearTimeout(this.sharpenTimer);
     clearTimeout(this.scaleTimer);
     this.resizeObserver?.disconnect();
+    if (this.dropKeys) {
+      window.removeEventListener('keydown', this.dropKeys);
+      window.removeEventListener('keyup', this.dropKeys);
+    }
     if (this.root) {
       this.app.destroy({ removeView: true }, { children: true });
     }
   }
 };
+
+// What a drop does by the keys held: with Ctrl (Command on a Mac) the dragged cards become
+// siblings of what they are let go on, with Shift too they become children of it, and without
+// Ctrl nothing but their place changes
+function dropMode(e) {
+  if (!(e.ctrlKey || e.metaKey)) {
+    return null;
+  }
+  return e.shiftKey ? 'child' : 'sibling';
+}
 
 // The groups a card is in, the outermost first
 function groupsOf(data) {
@@ -2251,7 +2313,8 @@ function card(data, resolution, iconResolution, fontFamily) {
   c.hitArea = new PIXI.Rectangle(0, 0, width, height);
   c.cardFrame = new PIXI.Graphics()
     .roundRect(0, 0, width, height, 8)
-    .fill({ color: GROUP_TARGET_TINT, alpha: CARD_ALPHA });
+    // White, so its tint is its color
+    .fill({ color: 0xffffff, alpha: CARD_ALPHA });
   c.cardFrame.visible = false;
   c.addChild(c.cardFrame);
   // The icon and the label share the inside of the card, which neither may spill out of: an
