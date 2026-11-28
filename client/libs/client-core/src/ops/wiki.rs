@@ -26,6 +26,23 @@ pub fn query_at(body: &str, cursor: usize) -> Option<String> {
     (!between.contains("]]") && after.contains("]]")).then(|| between.to_string())
 }
 
+/// The body with `title` put between the `[[` and the `]]` of the link the cursor is in, and the
+/// cursor right after it, as [`query_at`] finds that link. For a text that the shell keeps and
+/// the core does not, as the dialog of a text of the atlas. `cursor` counts characters. None
+/// when the cursor is in no link.
+pub fn picked_at(body: &str, cursor: usize, title: &str) -> Option<(String, usize)> {
+    query_at(body, cursor)?;
+    let at = body
+        .char_indices()
+        .nth(cursor)
+        .map_or(body.len(), |(byte, _)| byte);
+    let (before, after) = body.split_at(at);
+    let open = before.rfind("[[")? + 2;
+    let close = at + after.find("]]")?;
+    let text = format!("{}{title}{}", &body[..open], &body[close..]);
+    Some((text, char_len(&body[..open]) + char_len(title)))
+}
+
 /// Opens the page of the wiki link or the tag at the cursor. Off a link, nothing happens.
 pub fn open_link_at(model: &Model, item_id: &str, cursor: usize) -> Cmd {
     let link = model

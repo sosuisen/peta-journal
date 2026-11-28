@@ -1,12 +1,22 @@
 //! The `[[wiki link]]` completion for the web shell: what is typed inside the brackets.
 
-use client_core::util::utf16::chars_of_utf16;
+use client_core::util::utf16::{chars_of_utf16, utf16_of_chars};
 
 /// The text between `[[` and the cursor at the UTF-16 place `cursor`, while the cursor is
 /// inside a `[[...]]`. None outside one.
 pub fn query_at(text: &str, cursor: u64) -> Option<String> {
     let units = usize::try_from(cursor).unwrap_or(usize::MAX);
     client_core::ops::wiki::query_at(text, chars_of_utf16(text, units))
+}
+
+/// The text with the page name `title` put into the link that the cursor at the UTF-16 place
+/// `cursor` is in, and the UTF-16 place right after the name. None outside a link.
+pub fn picked_at(text: &str, cursor: u64, title: &str) -> Option<(String, usize)> {
+    let units = usize::try_from(cursor).unwrap_or(usize::MAX);
+    let (picked, chars) =
+        client_core::ops::wiki::picked_at(text, chars_of_utf16(text, units), title)?;
+    let after = utf16_of_chars(&picked, chars);
+    Some((picked, after))
 }
 
 #[cfg(test)]

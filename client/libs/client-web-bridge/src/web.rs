@@ -525,6 +525,15 @@ impl WebShell {
         crate::wiki::query_at(text, cursor.into())
     }
 
+    /// The text with the page name `title` put into the `[[wiki link]]` that the cursor at the
+    /// UTF-16 place `cursor` is in, as JSON: `{ text, cursor }`, where cursor is the UTF-16
+    /// place right after the name. Undefined outside a link.
+    #[wasm_bindgen(js_name = wikiPicked)]
+    pub fn wiki_picked(&self, text: &str, cursor: u32, title: &str) -> Option<String> {
+        let (text, cursor) = crate::wiki::picked_at(text, cursor.into(), title)?;
+        Some(serde_json::json!({ "text": text, "cursor": cursor }).to_string())
+    }
+
     /// The URL of the page of the tag `tag`, in the folder of the tags `tagsDir`.
     #[wasm_bindgen(js_name = tagUrl)]
     pub fn tag_url(&self, tags_dir: &str, tag: &str) -> String {
