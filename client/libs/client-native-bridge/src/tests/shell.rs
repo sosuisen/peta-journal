@@ -56,11 +56,17 @@ struct FakeHost {
     stream: Mutex<Option<Receiver<SseEvent>>>,
     /// What each file the server took held when it took it.
     uploads: Arc<Mutex<Vec<Vec<u8>>>>,
+    /// False for a journal that runs no extension, as the one inside the Android app.
+    runs_extensions: bool,
 }
 
 impl Host for FakeHost {
     fn app_url(&self) -> Option<String> {
         Some("http://localhost:8080".into())
+    }
+
+    fn runs_extensions(&self) -> bool {
+        self.runs_extensions
     }
 
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
@@ -183,6 +189,15 @@ struct Screen {
 
 impl Screen {
     fn new() -> Screen {
+        Screen::on(true)
+    }
+
+    /// A screen on a journal that runs no extension.
+    fn without_extensions() -> Screen {
+        Screen::on(false)
+    }
+
+    fn on(runs_extensions: bool) -> Screen {
         let requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>> = Arc::default();
         let calls: Arc<Mutex<Vec<ApiOp>>> = Arc::default();
         let answered: Arc<Mutex<Vec<String>>> = Arc::default();
@@ -199,6 +214,7 @@ impl Screen {
             answered: answered.clone(),
             stream: Mutex::new(Some(from_test)),
             uploads: uploads.clone(),
+            runs_extensions,
         };
         let kept = requests.clone();
         let shell = NativeShell::new(host, clock, ClientId::new(), move |bytes| {
@@ -549,6 +565,23 @@ fn the_journal_of_today_opens_the_new_day_when_the_shell_tells_of_it() {
     wait_until("the journal of the new day is in the view", || {
         screen.view().contains("2026年11月7日 土曜日 (Today)")
     });
+}
+
+// 拡張を動かさないジャーナルでは、日付が変わっても`/today`は前の日のままで、新しい日をジャーナルに頼まない。テンプレートのない空のジャーナルを作らないためである（#1307）。
+#[test]
+fn the_journal_of_today_stays_on_its_day_on_a_journal_without_extensions() {
+    let screen = Screen::without_extensions();
+    screen.shell.open("/today").unwrap();
+    wait_until("the journal of today is in the view", || {
+        screen.view().contains("2026年11月6日 金曜日 (Today)")
+    });
+
+    screen.day.store(7, Ordering::SeqCst);
+    screen.send(&Event::DateMayHaveChanged);
+    // As long as the journal of the new day takes to be asked for on a journal with them
+    thread::sleep(Duration::from_millis(100));
+
+    assert_eq!(screen.journals_asked(), ["2026-11-06"]);
 }
 
 // タイマーは、Rust側で時間が過ぎると鳴る。検索は、入力のあとの待ちが明けてから、サーバーに送られる。
