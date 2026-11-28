@@ -24,11 +24,11 @@
 // of a group. What would take the drop shows it in a color of its own for each of the two.
 // A double click on a callout or a link card, or its menu, opens its dialog, which the shell
 // draws (setOnText).
-// The menus are made with @pixi/ui, the global `PIXI.ui` of pixi-ui.js beside this file.
+// The menus are drawn with PixiJS alone.
 // A canvas that is not editable only shows the atlas, as a static site does: a drag with
 // either button moves the view, the wheel scales it, and a click on a label opens its page.
-// It needs no @pixi/ui. A card whose label is hidden (`masked`) shows a softened blob only,
-// and opens nothing.
+// The right button on a card opens View Text, when the page has set onText. A card whose label
+// is hidden (`masked`) shows a softened blob only, and opens nothing.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
 //
@@ -524,6 +524,14 @@ window.AtlasCanvas = class AtlasCanvas {
         this.onFollow?.(panning.runLink, e.ctrlKey || e.metaKey, e.shiftKey);
       } else if (panning.button === 0 && panning.onLabel && opens(data)) {
         this.onOpen(data.path, e.ctrlKey || e.metaKey, e.shiftKey);
+      } else if (panning.button === 2 && data && !data.masked && this.onText && !panning.card.destroyed) {
+        // Only a page that can show the dialog offers View Text
+        const actions = { 'View Text': () => this.openViewDialog(data) };
+        this.openMenu(
+          cardMenu(data, false).map(name => [name, actions[name]]),
+          e.global.x,
+          e.global.y,
+        );
       }
     } else if (panning.button === 2 && panning.card && !panning.card.destroyed) {
       const data = panning.card.cardData;
@@ -533,7 +541,7 @@ window.AtlasCanvas = class AtlasCanvas {
         'Delete Card': () => this.onRemoveLink?.(data.id),
       };
       this.openMenu(
-        cardMenu(data).map(name => [name, actions[name]]),
+        cardMenu(data, true).map(name => [name, actions[name]]),
         e.global.x,
         e.global.y,
       );
@@ -585,19 +593,28 @@ window.AtlasCanvas = class AtlasCanvas {
         .stroke({ color: 0xdddddd, width: 1 }),
     );
     items.forEach(([name, action], i) => {
-      const item = new PIXI.ui.FancyButton({
-        defaultView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff),
-        hoverView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xf0f0f0),
-        text: uiText(name),
-        // The text at the left, as in the other menus of the app
-        defaultTextAnchor: { x: 0, y: 0.5 },
-        textOffset: { x: -70 + 12, y: 0 },
+      // Drawn with PixiJS alone, so a page that loads no more than it, as a static site, has it
+      const item = new PIXI.Container();
+      const back = new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff);
+      const label = uiText(name);
+      // The text at the left, as in the other menus of the app
+      label.anchor.set(0, 0.5);
+      label.position.set(12, 15);
+      item.addChild(back, label);
+      item.eventMode = 'static';
+      item.cursor = 'pointer';
+      item.hitArea = new PIXI.Rectangle(0, 0, 140, 30);
+      item.on('pointerover', () => {
+        back.tint = 0xf0f0f0;
       });
-      item.onPress.connect(() => {
+      item.on('pointerout', () => {
+        back.tint = 0xffffff;
+      });
+      item.on('pointertap', () => {
         this.closeMenu();
         action();
       });
-      // A button lies with its top left at its position
+      // An item lies with its top left at its position
       item.position.set(0, 4 + i * 30);
       menu.addChild(item);
     });
@@ -670,6 +687,7 @@ window.AtlasCanvas = class AtlasCanvas {
   openCardDialog({ id, x, y }) {
     this.openTextDialog({
       name: id ? 'Edit' : 'Add Card',
+      id,
       text: id ? this.bodyOf?.(id) : '',
       sided: false,
       done: (side, text) => {
@@ -682,11 +700,18 @@ window.AtlasCanvas = class AtlasCanvas {
     });
   }
 
+  // View Text of a card on a canvas that is not editable: the body of its item, to read only.
+  // The body is what bodyOf gives, or else the `text` of the card as setCards gave it.
+  openViewDialog(data) {
+    const text = this.bodyOf?.(data.id) ?? data.text;
+    this.onText?.(textAsked({ name: 'View Text', id: data.id, text, view: true }), () => {});
+  }
+
   // A dialog of a text, with a side to pick unless it is not `sided`, which the shell opens and
   // draws: onText(asked, done) as setOnText gives it. OK gives them to `done(side, text)`; the
-  // core takes an empty text as none. A canvas that is not editable opens none.
-  openTextDialog({ name, text, side, sided = true, done }) {
-    this.onText?.(textAsked({ name, text, side, sided }), done);
+  // core takes an empty text as none.
+  openTextDialog({ name, id, text, side, sided = true, done }) {
+    this.onText?.(textAsked({ name, id, text, side, sided }), done);
   }
 
   // A group is dragged by its frame, without Ctrl: all that is in it moves with it, and nothing
@@ -1093,8 +1118,10 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // onText(asked, done) opens the dialog of a text: the Edit of a card, a group or a callout,
-  // Add Card or Add Callout. asked is { name, text, side }, where side is null for a card, which
-  // has none. done(side, text) is called on OK; Cancel calls nothing.
+  // Add Card, Add Callout, or View Text on a canvas that is not editable. asked is { name, id,
+  // text, side, mode }: id names the card of View Text and of the Edit of a card, side is null
+  // for a card, which has none, and mode is 'edit' or 'view'. done(side, text) is called on OK;
+  // Cancel calls nothing. Without onText, a canvas that is not editable has no View Text.
   setOnText(onText) {
     this.onText = onText;
   }
@@ -1117,7 +1144,8 @@ window.AtlasCanvas = class AtlasCanvas {
   // path is the page it links to. width and height are its size as scaled, and a width of 0
   // leaves it to the label. icon and blob are SVGs or null, and iconDrawSize is the size of the
   // SVG, which is shown at iconSize. The core gives the color of each group, so it is the same
-  // as on the tag icons.
+  // as on the tag icons. A card may also have `text`, the body of its item as Markdown, which
+  // View Text shows when no bodyOf is set, as on a page that draws the canvas without the app.
   setCards(json) {
     this.data = JSON.parse(json);
     if (this.started) {
@@ -1644,8 +1672,12 @@ function dropMode(e) {
 
 // The names of the items of the menu of a card, in their order. Edit writes the body of its
 // item; Remove from Atlas only takes the card off the canvas. Delete Card, which deletes the
-// item, is for a link card or a plain card: the card of a page goes back among the pages.
-function cardMenu(data) {
+// item, is for a link card or a plain card: the card of a page goes back among the pages. A
+// canvas that is not editable only shows the body, with View Text.
+function cardMenu(data, editable) {
+  if (!editable) {
+    return ['View Text'];
+  }
   const remove = data.isLink ? ['Delete Card'] : [];
   return ['Edit', 'Remove from Atlas', ...remove];
 }
@@ -1655,11 +1687,18 @@ function canvasMenu() {
   return ['Add Card', 'Add Callout'];
 }
 
-// What the shell is asked to show in the dialog of a text: its name, its text, and the side to
-// start at, the top unless it is one of TITLE_SIDES. A dialog that is not `sided` has no side.
-function textAsked({ name, text, side, sided }) {
+// What the shell is asked to show in the dialog of a text: its name, the card it is of (View
+// Text names it), its text, the side to start at, and its mode. The side is the top unless it
+// is one of TITLE_SIDES; a dialog that is not `sided`, or is to `view` only, has none.
+function textAsked({ name, id, text, side, sided, view = false }) {
   const known = TITLE_SIDES.some(([s]) => s === side);
-  return { name, text: text ?? '', side: sided ? (known ? side : 'top') : null };
+  return {
+    name,
+    id: id ?? null,
+    text: text ?? '',
+    side: sided && !view ? (known ? side : 'top') : null,
+    mode: view ? 'view' : 'edit',
+  };
 }
 
 // The groups that what a drag moves can be taken out of with Ctrl: every group a dragged card
