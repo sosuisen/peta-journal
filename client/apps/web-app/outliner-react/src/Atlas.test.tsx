@@ -102,6 +102,9 @@ class FakeCanvas {
       bodyOf,
     });
   }
+  setOnText(f: Handler) {
+    this.handlers.onText = f;
+  }
   setCards(json: string) {
     this.given.push(['cards', JSON.parse(json)]);
   }
@@ -481,6 +484,190 @@ describe('what is done on the canvas', () => {
 });
 
 // 横で待つもの: 未追加の項目と、座標のない項目
+/** What the canvas asks the dialog of a text to show, and what came back from it */
+interface Asked {
+  readonly name: string;
+  readonly text: string;
+  readonly side: string | null;
+}
+
+/** The atlas with the dialog of a text opened by its canvas; `done` keeps what OK gave. */
+async function dialogOf(asked: Asked) {
+  const drawn = await atlas('m/');
+  const done: [string | null, string][] = [];
+  const open = drawn.canvas().handlers.onText as (
+    asked: Asked,
+    done: (side: string | null, text: string) => void,
+  ) => void;
+  act(() => open(asked, (side, text) => done.push([side, text])));
+  const input = () => screen.getByRole('textbox');
+  return { ...drawn, done, input };
+}
+
+// テキストのダイアログ（Edit、Add Card、グループと吹き出しのEdit）
+describe('the dialog of a text', () => {
+  // キャンバスが頼むと、その名のダイアログを、編集のタブで開く。本文は複数行の入力に出る。
+  test('the canvas opens it by its name on the edit tab, with the text in a box of several lines', async () => {
+    const { input } = await dialogOf({
+      name: 'Edit',
+      text: 'one\ntwo',
+      side: null,
+    });
+
+    expect(screen.getByRole('dialog', { name: 'Edit' })).toBeTruthy();
+    expect(input().tagName).toBe('TEXTAREA');
+    expect((input() as HTMLTextAreaElement).value).toBe('one\ntwo');
+    expect(document.activeElement).toBe(input());
+    expect((input() as HTMLTextAreaElement).selectionStart).toBe(7);
+    expect(
+      screen.getByRole('tab', { name: 'Edit' }).getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(screen.queryByRole('radio')).toBeNull();
+  });
+
+  // OKは書いたものを渡して閉じる。辺のないものは、辺をnullで渡す。
+  test('OK gives what is written and closes, with no side for a card', async () => {
+    const { done, input } = await dialogOf({
+      name: 'Add Card',
+      text: '',
+      side: null,
+    });
+
+    fireEvent.change(input(), { target: { value: 'a\nb' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(done).toEqual([[null, 'a\nb']]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // Enterは改行を入れるだけで、閉じない。Ctrl+EnterかCommand+EnterがOK、EscapeがCancelである。
+  test('Enter only breaks the line; Ctrl or Command with Enter is OK, and Escape is Cancel', async () => {
+    const { done, input } = await dialogOf({
+      name: 'Edit',
+      text: 'x',
+      side: null,
+    });
+
+    const enter = createEvent.keyDown(input(), { key: 'Enter' });
+    fireEvent(input(), enter);
+    const open = screen.queryByRole('dialog') !== null;
+    fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true });
+    const first = [...done];
+
+    const again = await dialogOf({ name: 'Edit', text: 'y', side: null });
+    fireEvent.keyDown(again.input(), { key: 'Enter', metaKey: true });
+    const second = [...again.done];
+
+    const third = await dialogOf({ name: 'Edit', text: 'z', side: null });
+    fireEvent.keyDown(third.input(), { key: 'Escape' });
+
+    expect(enter.defaultPrevented).toBe(false);
+    expect(open).toBe(true);
+    expect(first).toEqual([[null, 'x']]);
+    expect(second).toEqual([[null, 'y']]);
+    expect(third.done).toEqual([]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // IMEで変換している間のCtrl+Enterは、OKにならない
+  test('Ctrl with Enter while an IME composes is not OK', async () => {
+    const { done, input } = await dialogOf({
+      name: 'Edit',
+      text: 'x',
+      side: null,
+    });
+
+    fireEvent.keyDown(input(), {
+      key: 'Enter',
+      ctrlKey: true,
+      isComposing: true,
+    });
+
+    expect(done).toEqual([]);
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+  });
+
+  // Cancelと、ダイアログの外の押下は、何も渡さずに閉じる
+  test('Cancel and a press beside the dialog close it and give nothing', async () => {
+    const first = await dialogOf({ name: 'Edit', text: 'x', side: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    const closed = screen.queryByRole('dialog') === null;
+
+    const second = await dialogOf({ name: 'Edit', text: 'y', side: null });
+    const beside = document.querySelector('.atlas-dialog-overlay') as Element;
+    fireEvent.mouseDown(beside);
+    fireEvent.mouseDown(second.input());
+    const kept = screen.queryByRole('dialog') !== null;
+    fireEvent.mouseDown(beside);
+
+    expect(closed).toBe(true);
+    expect(kept).toBe(true);
+    expect([...first.done, ...second.done]).toEqual([]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // グループと吹き出しは、辺を選べる。今の辺が選ばれていて、選んだ辺をOKが渡す。
+  test('a group or a callout picks its side in the dialog, starting at its own', async () => {
+    const { done } = await dialogOf({
+      name: 'Edit',
+      text: 'Plan',
+      side: 'left',
+    });
+    const picked = (name: string) =>
+      (screen.getByRole('radio', { name }) as HTMLInputElement).checked;
+    const before = ['Top', 'Bottom', 'Left', 'Right'].map(picked);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Right' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(before).toEqual([false, false, true, false]);
+    expect(done).toEqual([['right', 'Plan']]);
+  });
+
+  // Previewのタブは、書いたMarkdownを、ページの本文と同じに描く。編集に戻っても、書いたものはそのままである。
+  test('the Preview tab draws what is written as a body of a page is drawn, and the edit tab keeps it', async () => {
+    const { done, input } = await dialogOf({
+      name: 'Edit',
+      text: 'x',
+      side: null,
+    });
+    fireEvent.change(input(), { target: { value: 'a **b**' } });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+    const drawn = document.querySelector(
+      '.atlas-dialog-preview app-item-view .item-content',
+    );
+    const html = drawn?.innerHTML;
+    const noBox = screen.queryByRole('textbox') === null;
+    fireEvent.click(screen.getByRole('tab', { name: 'Edit' }));
+    const back = (input() as HTMLTextAreaElement).value;
+    fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true });
+
+    expect(html).toBe('<p>a **b**</p>');
+    expect(noBox).toBe(true);
+    expect(back).toBe('a **b**');
+    expect(done).toEqual([[null, 'a **b**']]);
+  });
+
+  // Previewの中のリンクは、押しても開かない
+  test('a link in the Preview opens nothing', async () => {
+    const { input, wasm } = await dialogOf({
+      name: 'Edit',
+      text: '',
+      side: null,
+    });
+    fireEvent.change(input(), { target: { value: '<a href="/x">x</a>' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+
+    const link = document.querySelector('.atlas-dialog-preview a') as Element;
+    const click = createEvent.click(link);
+    fireEvent(link, click);
+
+    expect(click.defaultPrevented).toBe(true);
+    expect(wasm.events).toEqual([]);
+  });
+});
+
 describe('what waits beside the canvas', () => {
   const CARD_MIME = 'application/x-peta-atlas-card';
 

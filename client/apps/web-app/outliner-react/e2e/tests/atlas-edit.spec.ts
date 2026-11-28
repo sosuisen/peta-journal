@@ -22,7 +22,7 @@ async function firstOfMenu(page: Page, x: number, y: number): Promise<void> {
   await page.mouse.click(x + 70, y + 19);
 }
 
-// カードのEditは、項目の本文をMarkdownのまま入力に出し、OKで書いたものを本文にする。キャンバスのAdd Cardは、書いたものを本文に、右クリックした点にカードを作る。
+// カードのEditは、項目の本文をMarkdownのまま複数行の入力に出し、OKで書いたものを本文にする。キャンバスのAdd Cardは、書いたものを本文に、右クリックした点にカードを作る。Previewのタブは、書いたものをページの本文と同じに描く。
 test.describe('Edit and Add Card of the canvas', () => {
   test('Edit writes the Markdown into the body of the item, and Add Card makes an item at the point', async ({
     page,
@@ -44,15 +44,24 @@ test.describe('Edit and Add Card of the canvas', () => {
     // Add Card where nothing is. The menu of the canvas needs no card to be drawn.
     const [ex, ey] = await onScreen(page, 0, 120);
     await firstOfMenu(page, ex, ey);
+    const dialog = page.getByRole('dialog', { name: 'Add Card' });
+    // Enter breaks the line; the Preview draws both lines as the page would
     await page.keyboard.type('a new card');
     await page.keyboard.press('Enter');
+    await page.keyboard.type('**second** line');
+    await dialog.getByRole('tab', { name: 'Preview' }).click();
+    const preview = dialog.locator('.atlas-dialog-preview .item-content');
+    await expect(preview).toContainText('a new card');
+    await expect(preview.locator('strong')).toHaveText('second');
+    await dialog.getByRole('button', { name: 'OK' }).click();
     const added = await server.itemsSettled(atlas.id, all => all.length === 2);
 
     // Edit of the plain card, drawn by now: the cursor is at the end of its body
     const [cx, cy] = await onScreen(page, 0, 0);
     await firstOfMenu(page, cx, cy);
+    await expect(page.getByRole('dialog', { name: 'Edit' })).toBeVisible();
     await page.keyboard.type(' more');
-    await page.keyboard.press('Enter');
+    await page.keyboard.press('Control+Enter');
     const edited = await server.itemsSettled(
       atlas.id,
       all => all[0]?.body !== 'plain note',
@@ -67,8 +76,11 @@ test.describe('Edit and Add Card of the canvas', () => {
       added.map(i => [i.level, i.body, place(i.properties.atlas_bounds)]),
     ).toEqual([
       [1, 'plain note', [0, 0, 0, 40]],
-      [1, 'a new card', [0, 120, 0, 40]],
+      [1, 'a new card\n**second** line', [0, 120, 0, 40]],
     ]);
-    expect(edited.map(i => i.body)).toEqual(['plain note more', 'a new card']);
+    expect(edited.map(i => i.body)).toEqual([
+      'plain note more',
+      'a new card\n**second** line',
+    ]);
   });
 });
