@@ -436,7 +436,7 @@ test('a beta job is never picked, whatever files changed, and the other jobs are
   // swift-shared is still checked, by the job of stickies-mac
   assert.ok(jobsFor(['client/apps/native-app/swift-shared/Package.swift']).includes('stickies-mac'));
   // A file that touches no beta job leaves none out
-  assert.deepEqual(betaLeftOut(['journal/journal-core/src/lib.rs']), []);
+  assert.deepEqual(betaLeftOut(['client/apps/web-app/todo/src/main.tsx']), []);
   assert.deepEqual(betaLeftOut(['docs/plans.md']), []);
 });
 
@@ -461,7 +461,7 @@ test('the jobs command tells in one line on stderr which jobs it left out as bet
   assert.equal(core.status, 0);
   assert.deepEqual(core.stdout.trim().split('\n'), jobsFor(['client/libs/client-core/src/app.rs']));
   assert.match(core.stderr, /^left out as beta \(ADR 092\): outliner-ios\b[^\n]*\n$/);
-  assert.equal(jobs('journal/journal-core/src/lib.rs').stderr, '');
+  assert.equal(jobs('client/apps/web-app/todo/src/main.tsx').stderr, '');
 });
 
 // PRの前のフックが、Claude Codeの設定にある。
