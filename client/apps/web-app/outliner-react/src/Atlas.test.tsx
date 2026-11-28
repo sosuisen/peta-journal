@@ -92,6 +92,9 @@ class FakeCanvas {
   setOnShowText(f: Handler) {
     this.handlers.onShowText = f;
   }
+  setOnRemove(f: Handler) {
+    this.handlers.onRemove = f;
+  }
   setOnLink(add: Handler, set: Handler, remove: Handler, query: Handler) {
     Object.assign(this.handlers, {
       onAddLink: add,
@@ -391,6 +394,7 @@ describe('what is done on the canvas', () => {
     on.onSetLink('l', 'x/Bar');
     on.onRemoveLink('l');
     on.onLinkQuery('Fo');
+    on.onRemove('p');
 
     expect(wasm.events).toEqual([
       { kind: 'PlaceAtlasCard', card_id: 'a', x: 1, y: 2 },
@@ -421,6 +425,7 @@ describe('what is done on the canvas', () => {
       { kind: 'SetAtlasLink', item_id: 'l', target: 'x/Bar' },
       { kind: 'RemoveAtlasLink', item_id: 'l' },
       { kind: 'SearchAtlasLinks', query: 'Fo' },
+      { kind: 'RemoveAtlasCard', page_id: 'p' },
     ]);
   });
 
