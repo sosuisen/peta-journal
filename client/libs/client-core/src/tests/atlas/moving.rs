@@ -244,6 +244,7 @@ fn a_card_that_changed_its_parent_shows_the_bounds_the_batch_wrote() {
         vec![child("one"), child("three")],
         vec![
             parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            atlas_item("note", 2, "note", &[("atlas_bounds", "0,-100,0,40")]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("three", 1, Some("130,250,0,40")),
         ],
@@ -253,6 +254,7 @@ fn a_card_that_changed_its_parent_shows_the_bounds_the_batch_wrote() {
         &mut h,
         vec![
             parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            atlas_item("note", 2, "note", &[("atlas_bounds", "0,-100,0,40")]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("three", 2, Some("30,50,0,40")),
         ],

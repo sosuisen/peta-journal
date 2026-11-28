@@ -218,7 +218,7 @@ fn a_parent_without_bounds_waits_for_a_place_with_everything_under_it() {
             atlas_item(
                 "call",
                 2,
-                "Hi",
+                "[[x/far]]",
                 &[("atlas_type", "callout"), ("atlas_bounds", "1,2,0,40")],
             ),
             atlas_item("p", 1, "Placed", &placed),
@@ -234,7 +234,8 @@ fn a_parent_without_bounds_waits_for_a_place_with_everything_under_it() {
             waiting("in", "Far", Some("x/far"), false),
             waiting("a/b/one", "one", Some("a/b/one"), false),
             waiting("put", "put", None, false),
-            waiting("call", "Hi", None, false),
+            // The text of a callout is no link, whatever it looks like
+            waiting("call", "[[x/far]]", None, false),
             waiting("not", "not", None, false),
         ]
     );
