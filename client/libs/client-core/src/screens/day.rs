@@ -43,7 +43,8 @@ pub fn look() -> Cmd {
 }
 
 /// The clock says `today`: the journal of today opens the new day when the date changed and
-/// no item is being edited.
+/// no item is being edited. A shell that started the core with `opens_new_day` false keeps
+/// the old day (#1307).
 pub fn seen(model: &mut Model, today: String) -> Cmd {
     model.today = today;
     let old_day = matches!(
