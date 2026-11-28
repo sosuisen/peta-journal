@@ -290,3 +290,42 @@ fn there_is_no_query_outside_a_link() {
     assert_eq!(query_at("[[a]] b", 6), None);
     assert_eq!(query_at("[[ab", 4), None);
 }
+
+// 選んだページ名は、カーソルのあるリンクの `[[` と `]]` の間に入り、カーソルはその後に来る。前のリンクは変わらない。位置は文字で数える。
+#[test]
+fn a_picked_name_goes_into_the_link_at_the_cursor_with_the_cursor_after_it() {
+    use crate::ops::wiki::picked_at;
+    assert_eq!(
+        picked_at("[[a/b]]\n日 [[To]] c", 13, "Todo"),
+        Some(("[[a/b]]\n日 [[Todo]] c".to_string(), 16))
+    );
+    assert_eq!(picked_at("[[]]", 2, "x"), Some(("[[x]]".to_string(), 3)));
+}
+
+// カーソルがリンクの中にないときは、何も入らない。
+#[test]
+fn a_name_picked_outside_a_link_goes_nowhere() {
+    use crate::ops::wiki::picked_at;
+    assert_eq!(picked_at("[[a]] b", 6, "x"), None);
+    assert_eq!(picked_at("[[ab", 4, "x"), None);
+}
+
+// 項目でないもの（アトラスのダイアログ）の入力でも、ページ名の候補が出る。
+#[test]
+fn a_text_that_is_no_item_is_offered_page_names_too() {
+    let mut h = Harness::with_items(vec![]);
+    offers(&mut h, &["Todo"]);
+    h.send(Event::WikiQuery {
+        item_id: "atlas-dialog".into(),
+        context: Some(WikiLinkContext {
+            query: "To".into(),
+            x: 1.0,
+            y: 2.0,
+        }),
+    });
+    h.fire_timers();
+
+    let wiki = h.view().outline.wiki;
+    assert_eq!(wiki.suggestions, ["Todo"]);
+    assert_eq!(wiki.item_id.as_deref(), Some("atlas-dialog"));
+}

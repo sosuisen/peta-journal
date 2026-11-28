@@ -27,4 +27,14 @@ mod tests {
     fn outside_the_brackets_there_is_no_query() {
         assert_eq!(query_at("ab [[no]]", 1), None);
     }
+
+    // 選んだページ名を入れた文と、その後のカーソルを答える。位置はUTF-16で数える。リンクの外では何も答えない。
+    #[test]
+    fn a_picked_name_gives_the_text_and_the_cursor_after_it_in_utf16() {
+        assert_eq!(
+            picked_at("👍[[no]]", 5, "Notes"),
+            Some(("👍[[Notes]]".into(), 9))
+        );
+        assert_eq!(picked_at("ab [[no]]", 1, "Notes"), None);
+    }
 }
