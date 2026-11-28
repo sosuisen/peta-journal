@@ -179,6 +179,52 @@ fn the_item_of_a_removed_link_card_is_deleted() {
     assert_eq!(batches(&h), [[deleted("l")]]);
 }
 
+// ノーマルカードも「Delete Card」で項目ごと消える。
+#[test]
+fn the_item_of_a_deleted_plain_card_is_deleted() {
+    let mut h = atlas_of(vec![], vec![link_item("p", "plain text", Some("1,2,0,40"))]);
+    h.send(Event::RemoveAtlasLink {
+        item_id: "p".into(),
+    });
+
+    assert_eq!(batches(&h), [[deleted("p")]]);
+}
+
+// リンクカードとノーマルカードも「Remove from Atlas」で`atlas_bounds`だけを失い、項目は残って、座標のない項目（Not on Atlas）に並ぶ。
+#[test]
+fn a_link_card_or_a_plain_card_taken_off_the_atlas_keeps_its_item_and_waits() {
+    let mut h = atlas_of(
+        vec![],
+        vec![
+            link_item("l", "[[x/Target]]", Some("10,20,0,40")),
+            link_item("p", "plain text", Some("1,2,0,40")),
+        ],
+    );
+    h.send(Event::RemoveAtlasCard {
+        page_id: "l".into(),
+    });
+    h.send(Event::RemoveAtlasCard {
+        page_id: "p".into(),
+    });
+
+    assert_eq!(
+        removed_properties(&h),
+        [
+            ("l".to_string(), "atlas_bounds".to_string()),
+            ("p".to_string(), "atlas_bounds".to_string()),
+        ]
+    );
+    assert!(batches(&h).is_empty());
+    let waiting: Vec<String> = h
+        .view()
+        .atlas_unplaced
+        .into_iter()
+        .filter(|c| c.added)
+        .map(|c| c.id)
+        .collect();
+    assert_eq!(waiting, ["l", "p"]);
+}
+
 // グループの最後のカードだったリンクカードが取り除かれると、親でなくなった項目は、同じ送信で辺のプロパティを失う。ほかにカードが残る項目、辺を持たない項目、吹き出しの親、隣のカードは、何も失わない。
 #[test]
 fn an_item_whose_last_card_is_removed_loses_its_side_in_the_same_batch() {
