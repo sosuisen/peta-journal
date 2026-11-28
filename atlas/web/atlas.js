@@ -859,6 +859,9 @@ window.AtlasCanvas = class AtlasCanvas {
     drag.node.position.set(drag.origin.x + dx / this.zoom, drag.origin.y + dy / this.zoom);
     // Only the outlines of the groups around it change: its own moves with it
     this.drawGroups(drag);
+    // A plain copy: `global` is reused for the next event
+    drag.pointer = new PIXI.Point(e.global.x, e.global.y);
+    this.showDropTargets(drag, e);
   }
 
   endGroupDrag(e) {
@@ -880,9 +883,25 @@ window.AtlasCanvas = class AtlasCanvas {
       return;
     }
     this.showFrames(null);
-    // The group is placed as a card is, by the id of its item: only its own place changes
+    const mode = dropMode(e);
+    const target = mode ? this.groupTargetAt(drag, e) : null;
+    const join = mode === 'sibling' && !target ? this.joinAreaAt(drag, e) : null;
+    this.showDropTargets(drag, null);
+    // The group is placed as a card is, by the id of its item: only its own place changes.
+    // With Ctrl or with Shift and Ctrl, it joins what it is let go on as a card does, with
+    // all that is in it, and the same batch saves its place.
     const { x, y } = onCanvas(drag.node.outer, drag.node.x, drag.node.y);
-    this.onPlace(drag.group, x, y);
+    const ids = JSON.stringify([drag.group]);
+    const places = JSON.stringify([{ id: drag.group, x, y }]);
+    if (target && mode === 'sibling') {
+      this.onGroup?.(ids, target.cardData.id, places);
+    } else if (target) {
+      this.onMove?.(ids, target.cardData.id, places);
+    } else if (join) {
+      this.onMove?.(ids, join.label, places);
+    } else {
+      this.onPlace(drag.group, x, y);
+    }
   }
 
   // The views of the cards, in the order they are drawn: those of a group before those of the
@@ -1053,24 +1072,28 @@ window.AtlasCanvas = class AtlasCanvas {
   // The keys of a drop may be pressed or let go while the pointer rests: what would take the
   // drop is shown again for the keys as they are now
   followDropKeys(event) {
-    const drag = this.drag;
+    const drag = this.drag ?? this.groupDrag;
     if (!drag?.moved || !drag.pointer || !['Control', 'Meta', 'Shift'].includes(event.key)) {
       return;
     }
-    this.showDrag(drag, {
+    const e = {
       global: drag.pointer,
       ctrlKey: event.ctrlKey,
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
-    });
+    };
+    if (drag.node) {
+      this.showDropTargets(drag, e);
+    } else {
+      this.showDrag(drag, e);
+    }
   }
 
   // The groups and the targets of a drag of cards on the canvas, for where the pointer is and
   // the keys that are held
   showDrag(drag, e) {
-    // Callouts alone touch no group
-    const mode = drag.origins.length > 0 ? dropMode(e) : null;
-    // Only a drop with Ctrl alone can take the cards out of their groups
+    const mode = dropMode(e);
+    // Only a drop with Ctrl alone can take the cards and the callouts out of their groups
     const ctrl = mode === 'sibling';
     this.drawGroups(drag, ctrl);
     drag.ctrlShape = ctrl;
@@ -1082,7 +1105,9 @@ window.AtlasCanvas = class AtlasCanvas {
     }
   }
 
-  // onGroup(cardIdsJson, targetId) puts the cards dropped with Ctrl on a card into its group
+  // onGroup(idsJson, targetId, placesJson) makes what was let go with Ctrl on a card siblings of
+  // that card. ids names cards, callouts and groups; places is [{ id, x, y }], where each was
+  // let go on the canvas, which the same change saves.
   setOnGroup(onGroup) {
     this.onGroup = onGroup;
   }
@@ -1098,13 +1123,14 @@ window.AtlasCanvas = class AtlasCanvas {
     this.onFollow = onFollow;
   }
 
-  // onMove(cardIdsJson, parentId) puts the cards let go with Ctrl in the area of another group
-  // under the item of that group
+  // onMove(idsJson, parentId, placesJson) puts what was let go with Ctrl in the area of another
+  // group under the item of that group, and what was let go with Shift and Ctrl on a card
+  // under that card
   setOnMove(onMove) {
     this.onMove = onMove;
   }
 
-  // onUngroup(cardIdsJson) takes the cards let go outside their group with Ctrl out of it
+  // onUngroup(idsJson, placesJson) takes what was let go outside its group with Ctrl out of it
   setOnUngroup(onUngroup) {
     this.onUngroup = onUngroup;
   }
@@ -1465,9 +1491,13 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // The area of a group other than the dragged cards' own under the pointer, or null
   joinAreaAt(drag, e) {
-    // Not a group the cards are in already, however deep
-    const own = new Set(drag.origins.flatMap(o => groupsOf(o.view.cardData).map(g => g.id)));
-    const areas = this.areas().filter(c => !own.has(c.label));
+    // Not a group the dragged views are in already, however deep. A dragged group joins
+    // neither a group it is in nor one inside it.
+    const views = [...drag.origins, ...(drag.extras ?? [])].map(o => o.view);
+    const own = new Set(views.flatMap(v => groupsOf(dataOf(v)).map(g => g.id)));
+    chainOf(drag.node ?? null).forEach(id => own.add(id));
+    const inside = area => drag.node && within(this.frames.get(area.label), drag.node);
+    const areas = this.areas().filter(c => !own.has(c.label) && !inside(c));
     for (let i = areas.length - 1; i >= 0; i--) {
       if (areas[i].containsPoint(areas[i].toLocal(e.global))) {
         return areas[i];
@@ -1555,45 +1585,48 @@ window.AtlasCanvas = class AtlasCanvas {
       view.cursor = 'grab';
       if (drag.moved) {
         this.showFrames(null);
-        const mode = drag.origins.length > 0 ? dropMode(e) : null;
+        const mode = dropMode(e);
         const ctrl = mode === 'sibling';
         const target = mode ? this.groupTargetAt(drag, e) : null;
+        const join = ctrl && !target ? this.joinAreaAt(drag, e) : null;
         this.showDropTargets(drag, null);
         // The cards have moved with the pointer: they lie where they show. A position is the
         // center of a card, as the pivot is there, and the center of the character of a
         // callout. The core takes the place on the canvas, not the one in the frame: it counts
-        // the place from the item the card is under, or will be. Read before placing any: placing
-        // one gives a new list, which destroys these views.
-        const at = view => onCanvas(view.frameNode, view.x, view.y);
-        const places = drag.origins.map(o => [o.view.cardData.id, at(o.view).x, at(o.view).y]);
-        const moves = drag.extras.map(o => [o.view.saveMove, at(o.view).x, at(o.view).y]);
-        // With Ctrl, a card let go on a card joins the group of that card, and let go in the
-        // area of another group, it goes under the item of that group. With Shift and Ctrl, a
-        // card let go on a card goes under that card, and nothing else changes.
-        const join = ctrl ? this.joinAreaAt(drag, e) : null;
-        const targetId = ctrl && target ? target.cardData.id : null;
-        const childOf = mode === 'child' && target ? target.cardData.id : null;
-        const parentId = childOf ?? (!targetId && join ? join.label : null);
-        // Joining a group takes the cards out of their own; only the cards let go outside their
-        // group without joining another leave it
-        const leavers =
-          !targetId && !parentId && ctrl && drag.outside
-            ? drag.origins.map(o => o.view.cardData).filter(d => drag.outside.has(d.group)).map(d => d.id)
-            : [];
-        for (const [id, x, y] of places) {
-          this.onPlace(id, x, y);
+        // the place from the item the card is under, or will be. Read before telling any: a
+        // change gives a new list, which destroys these views.
+        const pieces = [...drag.origins, ...drag.extras].map(o => {
+          const v = o.view;
+          const data = dataOf(v);
+          const group = groupsOf(data).at(-1)?.id ?? null;
+          return { id: v.extraId ?? data.id, ...onCanvas(v.frameNode, v.x, v.y), group, save: v.saveMove };
+        });
+        const ids = list => JSON.stringify(list.map(piece => piece.id));
+        const places = list => JSON.stringify(list.map(({ id, x, y }) => ({ id, x, y })));
+        // With Ctrl, what is let go on a card becomes a sibling of that card, and what is let
+        // go in the area of another group goes under the item of that group. With Shift and
+        // Ctrl, what is let go on a card goes under that card, and nothing else changes. One
+        // change does it and saves the places, so it is undone as one.
+        if (target && ctrl) {
+          this.onGroup?.(ids(pieces), target.cardData.id, places(pieces));
+          return;
         }
-        for (const [save, x, y] of moves) {
-          save(x, y);
+        if (target || join) {
+          this.onMove?.(ids(pieces), target ? target.cardData.id : join.label, places(pieces));
+          return;
         }
-        if (targetId && this.onGroup) {
-          this.onGroup(JSON.stringify(places.map(([id]) => id)), targetId);
+        // Only what is let go outside its group with Ctrl leaves it; the rest is placed
+        const leaves = piece => ctrl && Boolean(drag.outside?.has(piece.group));
+        const leavers = pieces.filter(leaves);
+        for (const piece of pieces.filter(piece => !leaves(piece))) {
+          if (piece.save) {
+            piece.save(piece.x, piece.y);
+          } else {
+            this.onPlace(piece.id, piece.x, piece.y);
+          }
         }
-        if (parentId && this.onMove) {
-          this.onMove(JSON.stringify(places.map(([id]) => id)), parentId);
-        }
-        if (leavers.length > 0 && this.onUngroup) {
-          this.onUngroup(JSON.stringify(leavers));
+        if (leavers.length > 0) {
+          this.onUngroup?.(ids(leavers), places(leavers));
         }
       } else if (drag.runLink && !data.masked) {
         // A link in the text of a card opens as a link of a page does
@@ -1636,11 +1669,13 @@ window.AtlasCanvas = class AtlasCanvas {
       return null;
     }
     const dragged = new Set(drag.origins.map(o => o.view));
+    // The cards of a dragged group move with it
+    const moving = v => dragged.has(v) || (drag.node && within(v, drag.node));
     const cards = this.cardViews();
     for (let i = cards.length - 1; i >= 0; i--) {
       const v = cards[i];
       const p = v.toLocal(e.global);
-      if (!dragged.has(v) && v.hitArea.contains(p.x, p.y)) {
+      if (!moving(v) && v.hitArea.contains(p.x, p.y)) {
         return v;
       }
     }
