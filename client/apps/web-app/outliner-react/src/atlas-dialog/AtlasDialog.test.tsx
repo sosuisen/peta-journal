@@ -14,7 +14,7 @@ afterEach(cleanup);
 function dialog(props: Partial<AtlasDialogProps> = {}) {
   const ok = vi.fn<(side: string | null, text: string) => void>();
   const cancel = vi.fn<() => void>();
-  render(
+  const drawnWith = (changes: Partial<AtlasDialogProps>) => (
     <AtlasDialog
       name="Edit"
       mode="edit"
@@ -23,10 +23,15 @@ function dialog(props: Partial<AtlasDialogProps> = {}) {
       onOk={ok}
       onCancel={cancel}
       {...props}
-    />,
+      {...changes}
+    />
   );
+  const view = render(drawnWith({}));
   const input = () => screen.getByRole<HTMLTextAreaElement>('textbox');
-  return { ok, cancel, input };
+  /** The same dialog given other props, as a shell draws it again */
+  const redraw = (changes: Partial<AtlasDialogProps>) =>
+    view.rerender(drawnWith(changes));
+  return { ok, cancel, input, redraw };
 }
 
 /** The names offered for a link, and what the dialog asked of them */
@@ -62,6 +67,7 @@ describe('the dialog of a text, alone', () => {
     expect(input().tagName).toBe('TEXTAREA');
     expect(input().value).toBe('one\ntwo');
     expect(input().readOnly).toBe(false);
+    expect(input().placeholder).toBe('Text');
     expect(document.activeElement).toBe(input());
     expect(input().selectionStart).toBe(7);
     expect(
@@ -76,7 +82,13 @@ describe('the dialog of a text, alone', () => {
     fireEvent.change(first.input(), { target: { value: 'a\nb' } });
     const enter = createEvent.keyDown(first.input(), { key: 'Enter' });
     fireEvent(first.input(), enter);
-    fireEvent.keyDown(first.input(), { key: 'Enter', ctrlKey: true });
+    fireEvent.keyDown(first.input(), { key: 'a', ctrlKey: true });
+    const ctrlEnter = createEvent.keyDown(first.input(), {
+      key: 'Enter',
+      ctrlKey: true,
+    });
+    fireEvent(first.input(), ctrlEnter);
+    fireEvent.change(first.input(), { target: { value: 'c' } });
     fireEvent.keyDown(first.input(), {
       key: 'Enter',
       metaKey: true,
@@ -86,19 +98,24 @@ describe('the dialog of a text, alone', () => {
     cleanup();
 
     const second = dialog();
-    fireEvent.keyDown(second.input(), { key: 'Escape' });
+    const escape = createEvent.keyDown(second.input(), { key: 'Escape' });
+    fireEvent(second.input(), escape);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     fireEvent.mouseDown(second.input());
+    const inside = second.cancel.mock.calls.length;
     fireEvent.mouseDown(
       document.querySelector('.atlas-dialog-overlay') as Element,
     );
 
     expect(enter.defaultPrevented).toBe(false);
+    expect(ctrlEnter.defaultPrevented).toBe(true);
+    expect(escape.defaultPrevented).toBe(true);
     expect(first.ok.mock.calls).toEqual([
       [null, 'a\nb'],
-      [null, 'a\nb'],
+      [null, 'c'],
     ]);
     expect(first.cancel).not.toHaveBeenCalled();
+    expect(inside).toBe(2);
     expect(second.cancel).toHaveBeenCalledTimes(3);
     expect(second.ok).not.toHaveBeenCalled();
   });
@@ -120,7 +137,7 @@ describe('the dialog of a text, alone', () => {
   // Previewは、渡されたHTMLを描き、描いたあとの手直しを呼ぶ。中のリンクは開かない。編集に戻っても、書いたものはそのままである。
   test('the Preview draws the HTML given for what is written, lets it be finished, and opens no link', () => {
     const drawn = vi.fn<(content: HTMLElement) => void>();
-    const { input } = dialog({
+    const { input, redraw } = dialog({
       previewHtml: text => `<p><a href="/x">${text}</a></p>`,
       drawn,
     });
@@ -134,10 +151,16 @@ describe('the dialog of a text, alone', () => {
     const click = createEvent.click(content.querySelector('a') as Element);
     fireEvent(content.querySelector('a') as Element, click);
     const noBox = screen.queryByRole('textbox') === null;
+    const drawnOnce = drawn.mock.calls.length;
+    // A shell that draws the HTML anew, as for another folder of the tags
+    redraw({ previewHtml: text => `<p>${text}!</p>`, drawn });
+    const again = content.innerHTML;
     fireEvent.click(screen.getByRole('tab', { name: 'Edit' }));
 
     expect(html).toBe('<p><a href="/x">a **b**</a></p>');
-    expect(drawn.mock.calls).toEqual([[content]]);
+    expect(drawnOnce).toBe(1);
+    expect(again).toBe('<p>a **b**!</p>');
+    expect(drawn.mock.calls).toEqual([[content], [content]]);
     expect(click.defaultPrevented).toBe(true);
     expect(noBox).toBe(true);
     expect(input().value).toBe('a **b**');
@@ -145,17 +168,17 @@ describe('the dialog of a text, alone', () => {
 
   // 見るだけのダイアログは、本文を変えられず、ボタンはCancelだけで、辺もない。Previewはある。
   test('a dialog to view only cannot change the text, has Cancel alone and no side, and has the Preview', () => {
-    const { input, cancel } = dialog({
+    const { input, cancel, ok } = dialog({
       name: 'View Text',
       mode: 'view',
       text: 'read **me**',
       side: 'left',
-      onOk: undefined,
     });
     fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true });
     const buttons = screen
       .getAllByRole('button')
       .map(button => button.textContent);
+    const tabs = screen.getAllByRole('tab').map(tab => tab.textContent);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
     const html = document.querySelector(
@@ -165,6 +188,8 @@ describe('the dialog of a text, alone', () => {
 
     expect(screen.getByRole('dialog', { name: 'View Text' })).toBeTruthy();
     expect(buttons).toEqual(['Cancel']);
+    expect(tabs).toEqual(['Text', 'Preview']);
+    expect(ok).not.toHaveBeenCalled();
     expect(screen.queryByRole('radio')).toBeNull();
     expect(html).toBe('<p>read **me**</p>');
     expect(cancel).toHaveBeenCalledTimes(1);
@@ -176,6 +201,7 @@ describe('the dialog of a text, alone', () => {
 
     expect(input().readOnly).toBe(true);
     expect(input().value).toBe('read');
+    expect(input().hasAttribute('placeholder')).toBe(false);
   });
 });
 
@@ -227,7 +253,11 @@ describe('the page names offered for a link, alone', () => {
     ) as HTMLElement;
     const names = [...list.children].map(n => [n.textContent, n.className]);
 
-    fireEvent.mouseDown(screen.getByText('Todo'));
+    const beyond = vi.fn();
+    document.addEventListener('mousedown', beyond);
+    const press = createEvent.mouseDown(screen.getByText('Todo'));
+    fireEvent(screen.getByText('Todo'), press);
+    document.removeEventListener('mousedown', beyond);
 
     expect([list.style.left, list.style.top]).toEqual(['10px', '20px']);
     expect(names).toEqual([
@@ -238,6 +268,17 @@ describe('the page names offered for a link, alone', () => {
     expect(input().value).toBe('[[Todo]]');
     expect(input().selectionStart).toBe(6);
     expect(screen.queryByRole('dialog')).not.toBeNull();
+    // The box keeps the focus, and the press goes no further than the name
+    expect(press.defaultPrevented).toBe(true);
+    expect(beyond).not.toHaveBeenCalled();
+  });
+
+  // 名前が1つもないときは、候補の欄を出さない
+  test('no names show no list', () => {
+    const { given } = links({ titles: [], selected: 0, x: 0, y: 0 });
+    dialog({ links: given });
+
+    expect(document.querySelector('.atlas-dialog-suggestions')).toBeNull();
   });
 
   // 候補がある間、上下の矢印とEscapeは候補のものである。Enterは選ばれた名前を入れ、OKにならない。
@@ -267,13 +308,16 @@ describe('the page names offered for a link, alone', () => {
   });
 
   // ダイアログが閉じるときは、候補も閉じる
-  test('the names close with the dialog', () => {
-    const { given, asked } = links(null);
-    dialog({ links: given });
+  test('the names close with the dialog, by the last links it was given', () => {
+    const first = links(null);
+    const last = links(null);
+    const { redraw } = dialog({ links: first.given });
+    redraw({ links: last.given });
 
     cleanup();
 
-    expect(asked).toEqual([['close']]);
+    expect(first.asked).toEqual([]);
+    expect(last.asked).toEqual([['close']]);
   });
 });
 

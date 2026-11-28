@@ -567,6 +567,8 @@ describe('the dialog of a text', () => {
     fireEvent(link, click);
 
     expect(drawn.innerHTML).toBe('<p><a href="/x">x</a></p>');
+    // No folder of the tags is set
+    expect(wasm.tagDirs.at(-1)).toBe('');
     expect(click.defaultPrevented).toBe(true);
     // Only the queries of the typing, as in the editor of a page
     expect(wasm.events.filter(e => e.kind !== 'WikiQuery')).toEqual([]);
@@ -651,11 +653,62 @@ describe('the dialog of a text', () => {
     expect(input().value).toBe('[[]]');
   });
 
-  // ほかの項目に示された名前は、ダイアログに出ない
-  test('names offered for another item do not show in the dialog', async () => {
-    await dialogOf(asked(), offered('item', ['Todo']));
+  // ほかの項目に示された名前は、ダイアログに出ない。閉じても、その問いは閉じない。
+  test('names offered for another item do not show in the dialog, nor close with it', async () => {
+    const { wasm } = await dialogOf(asked(), offered('item', ['Todo']));
+    const list = document.querySelector('.atlas-dialog-suggestions');
 
-    expect(document.querySelector('.atlas-dialog-suggestions')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(list).toBeNull();
+    expect(wasm.events).toEqual([]);
+  });
+
+  // ダイアログを閉じると、ダイアログに示された名前の問いも閉じる
+  test('the names offered for the dialog close with it', async () => {
+    const { wasm } = await dialogOf(asked(), offered('atlas-dialog', ['Todo']));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(wasm.events).toEqual([
+      { kind: 'WikiQuery', item_id: 'atlas-dialog', context: null },
+    ]);
+  });
+
+  // 見るだけのダイアログには、名前を出さない
+  test('a dialog to view only shows no names, and closes no query of them', async () => {
+    const { wasm } = await dialogOf(
+      asked({ name: 'View Text', mode: 'view' }),
+      offered('atlas-dialog', ['Todo']),
+    );
+    const list = document.querySelector('.atlas-dialog-suggestions');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(list).toBeNull();
+    expect(wasm.events).toEqual([]);
+  });
+
+  // Previewの画像の大きさとコードの色は、ページの本文と同じに付く
+  test('the Preview sizes its images and colors its code as a page does', async () => {
+    const { input } = await dialogOf(asked());
+    fireEvent.change(input(), {
+      target: {
+        value:
+          '<img src="a.png#w=10&h=20"><pre><code class="language-js">let a</code></pre>',
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+
+    const drawn = document.querySelector(
+      '.atlas-dialog-preview .item-content',
+    ) as Element;
+    const image = drawn.querySelector('img') as Element;
+
+    expect([image.getAttribute('width'), image.getAttribute('height')]).toEqual(
+      ['10', '20'],
+    );
+    expect(drawn.querySelector('pre .code-lang-label')?.textContent).toBe('js');
   });
 });
 

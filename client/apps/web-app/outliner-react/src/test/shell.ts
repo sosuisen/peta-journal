@@ -107,6 +107,8 @@ export class WebShell {
   readonly closes: [string, string, number][] = [];
   /** What `wikiPicked` was asked, in order. */
   readonly picks: [string, number, string][] = [];
+  /** The folders of the tags that each `bodyHtml` was given, in order. */
+  readonly tagDirs: string[] = [];
   /** The changes the next call answers, once. */
   private reply: string | null = null;
   /** The changes that `changes()` gives after a render. */
@@ -211,7 +213,8 @@ export class WebShell {
   }
 
   // The text as it is, so a test sees that the HTML comes from here
-  bodyHtml(text: string): string {
+  bodyHtml(text: string, tagsDir: string): string {
+    this.tagDirs.push(tagsDir);
     return `<p>${text}</p>`;
   }
 
