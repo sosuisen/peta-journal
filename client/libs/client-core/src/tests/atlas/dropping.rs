@@ -314,8 +314,9 @@ fn a_drop_on_what_cannot_take_the_item_goes_to_the_top() {
     assert_eq!(dropped_onto("note", at, Some("note"), None), to_the_top);
     assert_eq!(dropped_onto("note", at, None, Some("note")), to_the_top);
     assert_eq!(dropped_onto("note", at, None, Some("sub")), to_the_top);
-    // A callout takes nothing
+    // A callout takes nothing, and is no card to become a sibling of
     assert_eq!(dropped_onto("note", at, None, Some("call")), to_the_top);
+    assert_eq!(dropped_onto("note", at, Some("call"), None), to_the_top);
 }
 
 // 親のただ1つの子を、Ctrlを押してその親の上にドロップすると、親の子のまま、ドロップした場所に置かれる。親は子を失わないので、何も失わない。別の親へ移れば、元の親は、同じ送信で辺を失い、空の本文には`no title`が書かれる。

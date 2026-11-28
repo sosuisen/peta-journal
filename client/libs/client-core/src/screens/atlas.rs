@@ -286,16 +286,12 @@ pub fn drop_card(
     };
     // The item of the page is made at the end of the outline, and joins from there
     let made = new_card(model, &format!("{}{}", page.dir_path, page.name), x, y);
-    let Some(BatchOpInput::Create {
-        body, properties, ..
-    }) = &made
-    else {
+    let Some(BatchOpInput::Create { properties, .. }) = &made else {
         return done();
     };
+    // What the join reads of the item that is not made yet: its name and its bounds
     let card = Item {
         id: NEW_CARD.to_string(),
-        level: 1,
-        body: body.clone(),
         properties: properties.clone(),
         ..Item::default()
     };
