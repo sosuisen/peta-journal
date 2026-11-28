@@ -305,8 +305,12 @@ dropboxFolder=/PetaJournal
 
 The shell for iOS, in Swift with SwiftUI. It does what the Android shell does, with the same
 core inside the app (ADR 034). `client/apps/native-app/outliner-ios/README.md` describes the tools, the build of the
-app and the tests. Its tests need a Mac, and those of the screen a simulator. They do not run
-in CI.
+app and the tests. Its tests need a Mac, and those of the screen a simulator.
+
+The module is beta (ADR 092): neither the hook before a pull request nor the CI runs its job, so
+a change elsewhere may break it unseen. When you change it, run its job by hand
+(`node scripts/checks.mjs run outliner-ios`) and write the result in the pull request. See
+"Beta modules" below.
 
 ## Atlas (atlas)
 
@@ -372,6 +376,28 @@ failed or was cancelled. The protection of `main` asks for this one check.
 The jobs of every OS run. The repository is public, so the standard runners of GitHub cost
 nothing, also on macOS. A larger runner would cost: none of the jobs uses one.
 
+### Beta modules
+
+A job of `scripts/checks.mjs` can be beta (`beta: true`, ADR 092). Neither the hook before a pull
+request nor the CI runs a beta job, whatever files changed: the rule that picks the jobs
+(`node scripts/checks.mjs jobs`) leaves it out. The hook and the `plan` job name the job that
+they left out in one line, so that nobody takes the silence for a pass.
+
+`outliner-ios` is the one beta job. What is gone is the regression test on every change: a
+change of the Rust code of `client` or of `swift-shared` may break `outliner-ios`, even its build,
+and no check tells. It shows when the module is changed next. `swift-shared` is still checked
+by the job of `stickies-mac`.
+
+The job and its steps stay. When you change a beta module, run its job by hand and write the
+result in the pull request, as the required `ci` check does not show it:
+
+```
+node scripts/checks.mjs run outliner-ios
+```
+
+A flag needs the consent of the developer and an ADR. `scripts/verification.test.mjs` watches the
+list of the beta jobs.
+
 The CI can also be started by hand, from the Actions tab or with `gh workflow run CI --ref
 <branch>`. By hand, each OS can be left out with an input, to wait less. The `guard` job runs
 every time.
@@ -382,7 +408,9 @@ gh workflow run CI --ref <branch> -f linux=false -f macos=false  # only the Wind
 gh workflow run CI --ref <branch> -f ios_only=true               # only outliner-ios, and the guard
 ```
 
-`ios_only` leaves out every other job, whatever the other inputs say.
+`ios_only` leaves out every other job, whatever the other inputs say. It is the only way to run
+the beta job `outliner-ios` in the CI: no pull request and no push runs it, and neither does a
+run by hand without `ios_only`.
 
 The checks of each job are listed once, in `scripts/checks.mjs`: the format, the lint, the tests
 and the coverage. The workflow only installs the tools, then runs `node scripts/checks.mjs run <job>`.
@@ -398,12 +426,13 @@ The hook finds a failure before the CI does. It is not what proves the pull requ
 required `ci` check of the CI is (ADR 086). So the hook runs only the steps that this machine can
 run, and leaves the rest to the CI:
 
+- A beta job is not run at all (see "Beta modules" above). The hook names it in one line.
 - A step for another OS is skipped. The hook does not use your Mac.
 - A step that touches the screen (`screen: true` in `scripts/checks.mjs`) is skipped, as you could
   not use the PC meanwhile. It is the coverage step of `stickies-win`, which presses real keys.
 
 A skipped step does not stop the pull request. The hook lists the skipped steps, and the CI of
-the pull request runs them.
+the pull request runs them. The CI does not run a beta job: you run it by hand.
 Every changed file counts, Markdown too: a test may read it as its data. Only the files under
 `docs/` touch no job.
 
