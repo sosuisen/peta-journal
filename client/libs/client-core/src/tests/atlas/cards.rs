@@ -226,6 +226,8 @@ fn a_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
         y: 50.0,
         grab_x: 0.25,
         grab_y: 1.0,
+        target_id: None,
+        parent_id: None,
     });
 
     // 120 wide and 40 high: the center is 30 right of a spot a quarter in, and 20 above the bottom
@@ -283,6 +285,8 @@ fn a_page_with_no_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_po
         y: 50.0,
         grab_x: 0.25,
         grab_y: 1.0,
+        target_id: None,
+        parent_id: None,
     });
 
     assert_eq!(

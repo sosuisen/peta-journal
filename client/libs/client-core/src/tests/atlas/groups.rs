@@ -20,6 +20,7 @@ fn atlas_with_group(title: &str, side: Option<&str>) -> Harness {
 fn ungroup(h: &mut Harness, card_ids: &[&str]) {
     h.send(Event::UngroupAtlasCards {
         card_ids: card_ids.iter().map(|id| id.to_string()).collect(),
+        places: vec![],
     });
 }
 
@@ -367,7 +368,7 @@ fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batc
         [
             leveled("i-one", 2),
             moved(&["i-one"], "i-three"),
-            unsided("g"),
+            emptied("g", Some("no title"), true),
         ]
     );
     // To a group that is made for it
@@ -382,7 +383,7 @@ fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batc
             leveled_at("i-two", 2, "-50,0,0,40"),
             leveled_at("i-three", 2, "50,0,0,40"),
             moved(&["i-two", "i-three"], NEW),
-            unsided("h"),
+            emptied("h", Some("no title"), true),
         ]
     );
 }
@@ -409,6 +410,7 @@ fn cards_that_leave_two_groups_at_once_go_behind_their_groups_in_one_batch() {
             moved(&["i-two"], "i-one"),
             leveled("i-three", 1),
             moved(&["i-three"], "h"),
+            emptied("h", Some("no title"), false),
         ]]
     );
 }

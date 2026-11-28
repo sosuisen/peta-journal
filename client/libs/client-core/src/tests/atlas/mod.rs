@@ -164,6 +164,13 @@ fn batches(h: &Harness) -> Vec<Vec<BatchOpInput>> {
                 ItemPosition::After(id) if made.contains(&id) => ItemPosition::after(NEW),
                 position => position,
             };
+            let name = |id: String| {
+                if made.contains(&id) {
+                    NEW.to_string()
+                } else {
+                    id
+                }
+            };
             ops.into_iter()
                 .map(|op| match op {
                     BatchOpInput::Create {
@@ -188,9 +195,26 @@ fn batches(h: &Harness) -> Vec<Vec<BatchOpInput>> {
                         page_id,
                         position,
                     } => BatchOpInput::Move {
-                        ids,
+                        ids: ids.into_iter().map(name).collect(),
                         page_id,
                         position: named(position),
+                    },
+                    BatchOpInput::Update {
+                        id,
+                        body,
+                        level,
+                        collapsed,
+                        task,
+                        properties,
+                        dropped_properties,
+                    } => BatchOpInput::Update {
+                        id: name(id),
+                        body,
+                        level,
+                        collapsed,
+                        task,
+                        properties,
+                        dropped_properties,
                     },
                     op => op,
                 })
@@ -285,6 +309,8 @@ fn drop_on(h: &mut Harness, card_id: &str, x: f64, y: f64) {
         y,
         grab_x: 0.5,
         grab_y: 0.5,
+        target_id: None,
+        parent_id: None,
     });
 }
 
@@ -314,6 +340,20 @@ fn sided(id: &str, body: Option<&str>, side: &str) -> BatchOpInput {
         task: None,
         properties: [("atlas_side".to_string(), side.into())].into(),
         dropped_properties: Vec::new(),
+    }
+}
+
+/// The operation that tidies an item that is no parent any more: an empty body gets the given
+/// one, and with `side` its side goes
+fn emptied(id: &str, body: Option<&str>, side: bool) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: body.map(str::to_string),
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: side.then(|| "atlas_side".to_string()).into_iter().collect(),
     }
 }
 
@@ -357,5 +397,6 @@ fn group(h: &mut Harness, card_ids: &[&str], target_id: &str) {
     h.send(Event::GroupAtlasCards {
         card_ids: card_ids.iter().map(|id| id.to_string()).collect(),
         target_id: target_id.into(),
+        places: vec![],
     });
 }

@@ -223,7 +223,11 @@ fn an_item_whose_last_card_is_removed_loses_its_side_in_the_same_batch() {
 
     assert_eq!(removed("a"), [deleted("a"), unsided("alone")]);
     assert_eq!(removed("b"), [deleted("b")]);
-    assert_eq!(removed("c"), [deleted("c")]);
+    // An item with no side still gets a body when it has none
+    assert_eq!(
+        removed("c"),
+        [deleted("c"), emptied("plain", Some("no title"), false)]
+    );
     assert_eq!(removed("d"), [deleted("d")]);
     // The card above the removed one is beside it, not over it
     assert_eq!(removed("e2"), [deleted("e2")]);

@@ -24,7 +24,7 @@
 //! away in the same batch: the side is of the title of a group, and the item is no group any
 //! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
 
-use crate::app::{cancel_timer, done, log_error, run, AtlasJoin, Cmd, Event, Model};
+use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
 use crate::model::{ItemExt, PageExt};
@@ -76,47 +76,12 @@ fn bounds_of(item: &Item) -> Option<Bounds> {
 /// A card of the shown atlas page.
 struct Card<'a> {
     item: &'a Item,
-    /// The group item the card is under: the last of its parents
-    group: Option<&'a Item>,
     /// The items the card is under, the outermost first
     parents: Vec<&'a Item>,
     /// The page of the directory the card stands for; none for a link card
     page_id: Option<&'a str>,
     /// Where the card lies on the canvas; none for a card that is not drawn
     place: Option<Bounds>,
-    /// The point of the canvas its bounds are counted from: where its group lies. None while
-    /// an item it is under is not drawn.
-    frame: Option<(f64, f64)>,
-}
-
-/// An item that goes under another item, with the bounds it takes there.
-#[derive(Clone, Copy)]
-struct Moving<'a> {
-    item: &'a Item,
-    /// Its bounds counted from its new parent, so it stays where it lies on the canvas. None
-    /// for an item that lies nowhere: it gets no bounds.
-    bounds: Option<Bounds>,
-}
-
-impl<'a> Moving<'a> {
-    /// The card as it goes right under the item that lies at `origin` on the canvas, or to the
-    /// top for the center of the canvas.
-    fn of(card: &Card<'a>, origin: Option<(f64, f64)>) -> Moving<'a> {
-        let bounds = match (card.place, origin) {
-            (Some(place), Some((x, y))) => Some(place.moved_by(-x, -y)),
-            _ => None,
-        };
-        Moving {
-            item: card.item,
-            bounds,
-        }
-    }
-
-    /// The bounds to write: none when they stay as they are stored.
-    fn new_bounds(&self) -> Option<Bounds> {
-        self.bounds
-            .filter(|bounds| bounds_of(self.item) != Some(*bounds))
-    }
 }
 
 impl Card<'_> {
@@ -129,14 +94,6 @@ impl Card<'_> {
     /// while an item it is under has no place.
     fn drawn_bounds(&self) -> Option<Bounds> {
         self.place.and_then(|_| bounds_of(self.item))
-    }
-
-    /// The point of the canvas the bounds of its group are counted from: where the card is
-    /// counted from once it is taken out of the group.
-    fn frame_of_group(&self) -> Option<(f64, f64)> {
-        let (x, y) = self.frame?;
-        let group = bounds_of(self.group?)?;
-        Some((x - group.x, y - group.y))
     }
 }
 
@@ -176,11 +133,9 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
             taken.extend(page_id);
             Card {
                 item: e.item,
-                group: e.group(),
                 parents: e.parents,
                 page_id,
                 place: e.place,
-                frame: e.frame,
             }
         })
         .collect()
@@ -256,22 +211,27 @@ fn add_page_card(model: &Model, page_id: &str, x: f64, y: f64) -> Cmd {
 /// Makes an item that links to `target`, placed with its center at the point, at the end of
 /// the outline.
 fn add_card(model: &Model, target: &str, x: f64, y: f64) -> Cmd {
+    change(model, new_card(model, target, x, y).into_iter().collect())
+}
+
+/// The operation that makes an item that links to `target` at the end of the outline, at the
+/// top, with its center at the point of the canvas. Its id is [`NEW_CARD`] until it is made.
+/// None on a page that is no atlas.
+fn new_card(model: &Model, target: &str, x: f64, y: f64) -> Option<BatchOpInput> {
+    let atlas_id = shown_atlas_page(model)?.id.clone();
     let bounds = Bounds {
         x: x.round(),
         y: y.round(),
         width: AUTO_WIDTH,
         height: CARD_HEIGHT,
     };
-    let body = link_body(target);
-    change_with_new_item(model, move |atlas_id, id| {
-        vec![new_item(
-            atlas_id,
-            id,
-            ItemPosition::Last,
-            body,
-            &[(BOUNDS_KEY, bounds.to_string())],
-        )]
-    })
+    Some(new_item(
+        atlas_id,
+        NEW_CARD.to_string(),
+        ItemPosition::Last,
+        link_body(target),
+        &[(BOUNDS_KEY, bounds.to_string())],
+    ))
 }
 
 /// Places what was dropped from the lists beside the canvas: a page not added, or an item
@@ -279,9 +239,12 @@ fn add_card(model: &Model, target: &str, x: f64, y: f64) -> Cmd {
 /// a card of the list.
 /// Whatever is dropped becomes an item of the top at the end of the page, with the point of
 /// the drop as its bounds, wherever it was in the outline (ADR 053): a page not added gets its
-/// item there, and an item without a place moves there ([`take_to_top`]). With Ctrl held on a
-/// card or a group, the shell then sends what it sends for a card of the canvas let go there,
-/// so one rule joins both to a group.
+/// item there, and an item without a place moves there ([`take_to_top`]).
+/// With Ctrl held on a card, `target_id` names that card, and what is dropped becomes its
+/// sibling ([`sibling_ops`]). With Ctrl held on a group, or with Shift and Ctrl on a card,
+/// `parent_id` names the item it goes under ([`under_ops`]). Either is one batch, the same as
+/// for what is dragged on the canvas. When the named item cannot take it, it goes to the top.
+#[allow(clippy::too_many_arguments)]
 pub fn drop_card(
     model: &mut Model,
     card_id: String,
@@ -289,16 +252,63 @@ pub fn drop_card(
     y: f64,
     grab_x: f64,
     grab_y: f64,
+    target_id: Option<String>,
+    parent_id: Option<String>,
 ) -> Cmd {
-    let center_x = x + (0.5 - grab_x) * CARD_WIDTH;
-    let center_y = y + (0.5 - grab_y) * CARD_HEIGHT;
-    if !center_x.is_finite() || !center_y.is_finite() {
+    let x = x + (0.5 - grab_x) * CARD_WIDTH;
+    let y = y + (0.5 - grab_y) * CARD_HEIGHT;
+    if !x.is_finite() || !y.is_finite() {
         return done();
     }
-    match placeable(model, &card_id) {
-        Some((item, _)) => take_to_top(model, &item, center_x, center_y),
-        None => add_page_card(model, &card_id, center_x, center_y),
+    let dropped = [AtlasPlace {
+        id: card_id.clone(),
+        x,
+        y,
+    }];
+    let joined = |pieces: &[Piece<'_>]| match (&target_id, &parent_id) {
+        (Some(target_id), _) => sibling_ops(model, pieces, target_id),
+        (None, Some(parent_id)) => under_ops(model, pieces, parent_id),
+        (None, None) => Vec::new(),
+    };
+    if let Some(piece) = pieces(model, std::slice::from_ref(&card_id), &dropped).pop() {
+        let ops = joined(std::slice::from_ref(&piece));
+        let item = piece.item.clone();
+        if ops.is_empty() {
+            return take_to_top(model, &item, x, y);
+        }
+        // The item is not drawn, so nothing shows that its bounds go: the outline that comes
+        // back then shows the bounds the batch wrote, whatever it had
+        set_property(model, &item.id, None);
+        return change(model, ops);
     }
+    let Some(page) = dir_pages(model).find(|p| p.id == card_id) else {
+        return done();
+    };
+    // The item of the page is made at the end of the outline, and joins from there
+    let made = new_card(model, &format!("{}{}", page.dir_path, page.name), x, y);
+    let Some(BatchOpInput::Create {
+        body, properties, ..
+    }) = &made
+    else {
+        return done();
+    };
+    let card = Item {
+        id: NEW_CARD.to_string(),
+        level: 1,
+        body: body.clone(),
+        properties: properties.clone(),
+        ..Item::default()
+    };
+    let piece = Piece {
+        item: &card,
+        below: Vec::new(),
+        group: None,
+        place: bounds_of(&card),
+        frame: Some((0.0, 0.0)),
+        dropped: true,
+    };
+    let ops = joined(std::slice::from_ref(&piece));
+    change(model, made.into_iter().chain(ops).collect())
 }
 
 /// Makes an item an item of the top at the end of the page, with its center at the point of
@@ -335,7 +345,7 @@ fn take_to_top(model: &mut Model, item: &Item, x: f64, y: f64) -> Cmd {
         position: ItemPosition::Last,
     });
     let parent = parent_of(model, item);
-    ops.extend(parent.and_then(|parent| side_dropped(model, parent, &leaving)));
+    ops.extend(parent.and_then(|parent| emptied(model, parent, &leaving)));
 
     let before: Vec<Item> = page_items(model, &atlas_id).cloned().collect();
     let is_leaving = |shown: &Item| leaving.iter().any(|item| item.id == shown.id);
@@ -463,8 +473,15 @@ pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     })
 }
 
+/// The id of the card that a batch makes, until the id is made ([`change`]).
+const NEW_CARD: &str = "\u{0}card";
+/// The id of the group that a batch makes, until the id is made ([`change`]).
+const NEW_GROUP: &str = "\u{0}group";
+
 /// Sends a change of the outline of the shown atlas page as one batch and shows the outline
 /// as the server has it then. A change that writes nothing sends nothing.
+/// An item that the batch makes is named [`NEW_CARD`] or [`NEW_GROUP`] in the operations. Its
+/// id is made here, so the operations that follow in the same batch can name the item.
 fn change(model: &Model, ops: Vec<BatchOpInput>) -> Cmd {
     let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
         return done();
@@ -472,27 +489,44 @@ fn change(model: &Model, ops: Vec<BatchOpInput>) -> Cmd {
     if ops.is_empty() {
         return done();
     }
-    run(move |api| async move { send(&api, atlas_id, ops).await })
-}
-
-/// Sends a change of the outline that makes an item. `make` takes the id of the atlas page
-/// and the id of the new item. The id is made here, so the operations that follow in the same
-/// batch can name the item.
-fn change_with_new_item(
-    model: &Model,
-    make: impl FnOnce(String, String) -> Vec<BatchOpInput> + Send + 'static,
-) -> Cmd {
-    let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
-        return done();
-    };
     run(move |api| async move {
-        let (_, now_ms) = api.local_now().await;
-        // A generator of its own: the one of the model cannot be reached from here, and an
-        // id is unique by its random part
-        let id = hmtid::Generator::for_pages_and_items().generate_at(now_ms);
-        let ops = make(atlas_id.clone(), id.as_str().to_string());
+        let mut ops = ops;
+        for made in [NEW_CARD, NEW_GROUP] {
+            if !ops
+                .iter_mut()
+                .any(|op| ids_in(op).any(|id| id.as_str() == made))
+            {
+                continue;
+            }
+            let (_, now_ms) = api.local_now().await;
+            // A generator of its own: the one of the model cannot be reached from here, and
+            // an id is unique by its random part
+            let id = hmtid::Generator::for_pages_and_items().generate_at(now_ms);
+            for named in ops
+                .iter_mut()
+                .flat_map(ids_in)
+                .filter(|id| id.as_str() == made)
+            {
+                *named = id.as_str().to_string();
+            }
+        }
         send(&api, atlas_id, ops).await
     })
+}
+
+/// The ids of items that an operation names: the item it writes, and the item it puts others
+/// behind.
+fn ids_in(op: &mut BatchOpInput) -> impl Iterator<Item = &mut String> {
+    let (ids, position): (Vec<&mut String>, Option<&mut ItemPosition>) = match op {
+        BatchOpInput::Create { id, position, .. } => (vec![id], Some(position)),
+        BatchOpInput::Move { ids, position, .. } => (ids.iter_mut().collect(), Some(position)),
+        BatchOpInput::Update { id, .. } | BatchOpInput::Delete { id } => (vec![id], None),
+    };
+    let behind = position.and_then(|position| match position {
+        ItemPosition::After(id) => Some(id),
+        _ => None,
+    });
+    ids.into_iter().chain(behind)
 }
 
 /// Sends the batch, reads the outline again and shows it. A card keeps the place shown for
@@ -562,32 +596,42 @@ fn parent_of<'a>(model: &'a Model, item: &Item) -> Option<&'a Item> {
         .map(|above| &**above)
 }
 
-/// The operation that takes the side away from `parent` when no item stays under it while
-/// the items `leaving` go: it is no parent then, and has no title to lay along a side. None
-/// for an item that keeps an item under it, for one without a side, and for a callout, whose
-/// side is of its own bubble.
-fn side_dropped(model: &Model, parent: &Item, leaving: &[&Item]) -> Option<BatchOpInput> {
-    let emptied = last_staying(model, parent, leaving).id == parent.id;
+/// The body an item gets when its last child leaves it and it has none of its own: it is a
+/// card then, and a card with nothing written is not drawn (ADR 053).
+pub const NO_TITLE: &str = "no title";
+
+/// The operation that tidies `parent` when no item stays under it while the items `leaving`
+/// go: it is no parent then. It stays in the outline. It loses its side, as it has no title
+/// to lay along one; not a callout, whose side is of its own bubble. An empty body becomes
+/// [`NO_TITLE`], so the item stays on the canvas as a card. None for an item that keeps an
+/// item under it, and for one that needs neither.
+fn emptied(model: &Model, parent: &Item, leaving: &[&Item]) -> Option<BatchOpInput> {
+    let is_emptied = last_staying(model, parent, leaving).id == parent.id;
     let has_side = parent.prop_str(SIDE_KEY).is_some();
     let is_callout = parent.prop_str(TYPE_KEY) == Some(CALLOUT_TYPE);
-    (emptied && has_side && !is_callout).then(|| BatchOpInput::Update {
+    let body = parent.body.trim().is_empty().then(|| NO_TITLE.to_string());
+    let side: Vec<String> = (has_side && !is_callout)
+        .then(|| SIDE_KEY.to_string())
+        .into_iter()
+        .collect();
+    (is_emptied && (body.is_some() || !side.is_empty())).then(|| BatchOpInput::Update {
         id: parent.id.clone(),
-        body: None,
+        body,
         level: None,
         collapsed: None,
         task: None,
         properties: Default::default(),
-        dropped_properties: vec![SIDE_KEY.to_string()],
+        dropped_properties: side,
     })
 }
 
-/// Deletes an item of the shown atlas page. The item it was under loses its side in the same
-/// batch when nothing else is under it.
+/// Deletes an item of the shown atlas page. The item it was under is tidied in the same batch
+/// when nothing else is under it ([`emptied`]).
 fn delete(model: &Model, item_id: String) -> Cmd {
     let Some(item) = model.state.get_item_by_id(&item_id) else {
         return done();
     };
-    let side = parent_of(model, &item).and_then(|parent| side_dropped(model, parent, &[&*item]));
+    let side = parent_of(model, &item).and_then(|parent| emptied(model, parent, &[&*item]));
     let ops = std::iter::once(BatchOpInput::Delete { id: item_id })
         .chain(side)
         .collect();
@@ -596,32 +640,40 @@ fn delete(model: &Model, item_id: String) -> Cmd {
 
 /// The operations that take items behind the item `after` at a level, in their order; none
 /// for no items. The level is written first: the server checks the levels of the items it
-/// moves. With the level go the bounds counted from the new parent, when they change.
+/// moves. With the level go the bounds counted from the new parent, when they change. What is
+/// under an item goes with it, as deep under it as before.
 fn taken_behind(atlas_id: &str, items: &[Moving], after: &str, level: i32) -> Vec<BatchOpInput> {
     if items.is_empty() {
         return Vec::new();
     }
-    let mut ops: Vec<BatchOpInput> = items
-        .iter()
-        .map(|moving| BatchOpInput::Update {
-            id: moving.item.id.clone(),
-            body: None,
-            level: Some(level),
-            collapsed: None,
-            task: None,
-            properties: moving
-                .new_bounds()
-                .map(|bounds| {
-                    let value = PropertyValue::Text(bounds.to_string());
-                    (BOUNDS_KEY.to_string(), value)
-                })
-                .into_iter()
-                .collect(),
-            dropped_properties: Vec::new(),
-        })
-        .collect();
+    let leveled = |item: &Item, level: i32, bounds: Option<Bounds>| BatchOpInput::Update {
+        id: item.id.clone(),
+        body: None,
+        level: Some(level),
+        collapsed: None,
+        task: None,
+        properties: bounds
+            .map(|bounds| {
+                let value = PropertyValue::Text(bounds.to_string());
+                (BOUNDS_KEY.to_string(), value)
+            })
+            .into_iter()
+            .collect(),
+        dropped_properties: Vec::new(),
+    };
+    let mut ops = Vec::new();
+    for moving in items {
+        ops.push(leveled(moving.item, level, moving.new_bounds()));
+        let deeper = level - moving.item.level;
+        let below = moving.below.iter();
+        ops.extend(below.map(|below| leveled(below, below.level + deeper, None)));
+    }
     ops.push(BatchOpInput::Move {
-        ids: items.iter().map(|moving| moving.item.id.clone()).collect(),
+        ids: items
+            .iter()
+            .flat_map(Moving::items)
+            .map(|item| item.id.clone())
+            .collect(),
         page_id: atlas_id.to_string(),
         position: ItemPosition::after(after),
     });
@@ -639,8 +691,7 @@ fn last_staying<'a>(model: &'a Model, parent: &'a Item, leaving: &[&Item]) -> &'
 
 /// The server changed the outline of an atlas page: its items are shown. A card keeps the
 /// place shown for it, as its move may not be saved yet. A card that went under another item
-/// takes the bounds of the server: the batch wrote them anew, counted from that item. What
-/// waited for a card to be made is done then ([`joined`]).
+/// takes the bounds of the server: the batch wrote them anew, counted from that item.
 pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> Cmd {
     let parents: Vec<Option<String>> = (0..items.len())
         .map(|at| {
@@ -660,155 +711,261 @@ pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> 
         }
     }
     file_reload::replace_page_items(model, atlas_id, items);
-    joined(model)
+    done()
 }
 
-/// Lets the cards that waited for a card join their groups, now that the outline is shown
-/// again. What still waits is given up: its card was not made.
-fn joined(model: &mut Model) -> Cmd {
-    let joins = std::mem::take(&mut model.atlas_joins);
-    let mut commands = Vec::new();
-    for join in joins {
-        commands.push(match join {
-            AtlasJoin::Card {
-                card_ids,
-                target_id,
-            } => group_cards(model, card_ids, target_id),
-            AtlasJoin::Parent {
-                card_ids,
-                parent_id,
-            } => move_cards(model, card_ids, parent_id),
-        });
-    }
-    model.atlas_joins.clear();
-    Command::all(commands)
+/// Where a card, a callout or a group that was dragged was let go, as a point of the canvas:
+/// the center of a card or of the character of a callout, or the place of the item of a
+/// group. `id` names it as the shell does: a card by the id of its page or of its item, a
+/// callout and a group by the id of its item.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct AtlasPlace {
+    pub id: String,
+    pub x: f64,
+    pub y: f64,
 }
 
-/// Cards dropped on another card join its group: they go under its item, each where it lies
-/// among the items under it ([`put_under`]). When the target is in no group, a new item with
-/// an empty body is made where the target lies in the outline, and the target and the cards go
-/// under it, the upper ones first. The new item lies at the centroid of the cards on the
-/// canvas. Either way, the bounds of the cards are written anew in the same batch, counted
-/// from the item they go under, so they stay where they lie (ADR 053). A card belongs to one
-/// group only,
-/// so the cards leave the groups they were in. The item of a group they leave stays, even
-/// with one card or none under it (ADR 053).
-pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) -> Cmd {
-    if is_being_made(model, &card_ids) {
-        let join = AtlasJoin::Card {
-            card_ids,
-            target_id,
-        };
-        model.atlas_joins.push(join);
-        return done();
+/// What is dragged to join a group or to leave one: a card, a callout or a parent, with all
+/// that is under it.
+struct Piece<'a> {
+    item: &'a Item,
+    /// The items under it, at any depth, which go where it goes
+    below: Vec<&'a Item>,
+    /// The item it is right under
+    group: Option<&'a Item>,
+    /// Where it lies on the canvas: where it was let go, or else where it is shown. None for
+    /// one that is not drawn.
+    place: Option<Bounds>,
+    /// The point of the canvas its bounds are counted from: where its group lies. None while
+    /// an item it is under is not drawn.
+    frame: Option<(f64, f64)>,
+    /// True when it was let go at a place of its own
+    dropped: bool,
+}
+
+impl<'a> Piece<'a> {
+    /// The item and the items under it, in their order.
+    fn items(&self) -> impl Iterator<Item = &'a Item> + '_ {
+        std::iter::once(self.item).chain(self.below.iter().copied())
     }
+
+    /// Whether the item is this one or one under it: nothing goes under an item of its own
+    /// tree.
+    fn holds(&self, item: &Item) -> bool {
+        self.items().any(|own| own.id == item.id)
+    }
+
+    /// The point of the canvas the bounds of its group are counted from: where the piece is
+    /// counted from once it is taken out of the group.
+    fn frame_of_group(&self) -> Option<(f64, f64)> {
+        let (x, y) = self.frame?;
+        let group = bounds_of(self.group?)?;
+        Some((x - group.x, y - group.y))
+    }
+}
+
+/// The pieces the shell names, in the order of the outline: a card by the id of its page or
+/// of its item, a callout and a parent by the id of its item. One that was let go at a place
+/// lies there. One under another of them is no piece of its own: it goes with that one.
+fn pieces<'a>(model: &'a Model, ids: &[String], places: &[AtlasPlace]) -> Vec<Piece<'a>> {
     let cards = card_entries(model);
-    let Some(target) = cards.iter().find(|card| card.id() == target_id) else {
-        return done();
+    let name_of = |item: &Item| -> String {
+        let card = cards.iter().find(|card| card.item.id == item.id);
+        card.map_or(item.id.as_str(), |card| card.id()).to_string()
     };
-    let in_group_of_target = |card: &Card| {
-        target.group.is_some() && card.group.map(|g| &g.id) == target.group.map(|g| &g.id)
-    };
-    let joining: Vec<&Card> = cards
+    let entries = entries(model);
+    let named: Vec<(&Entry, String)> = entries
         .iter()
-        .filter(|card| card.id() != target_id && card_ids.iter().any(|id| id == card.id()))
-        .filter(|card| !in_group_of_target(card))
+        .map(|e| (e, name_of(e.item)))
+        .filter(|(_, name)| ids.contains(name))
         .collect();
-    if joining.is_empty() {
-        return done();
+    let is_named = |item: &Item| named.iter().any(|(e, _)| e.item.id == item.id);
+    named
+        .iter()
+        .filter(|(e, _)| !e.parents.iter().any(|parent| is_named(parent)))
+        .map(|(e, name)| {
+            let dropped = places.iter().find(|place| &place.id == name);
+            Piece {
+                item: e.item,
+                below: under(model, e.item).collect(),
+                group: e.group(),
+                place: match dropped {
+                    Some(at) => Some(placed_at(e.item, at.x, at.y)),
+                    None => e.place,
+                },
+                frame: e.frame,
+                dropped: dropped.is_some(),
+            }
+        })
+        .collect()
+}
+
+/// An item that goes under another item, with the bounds it takes there.
+#[derive(Clone)]
+struct Moving<'a> {
+    item: &'a Item,
+    /// The items under it, which go with it
+    below: Vec<&'a Item>,
+    /// Its bounds counted from its new parent, so it stays where it lies on the canvas. None
+    /// for an item that lies nowhere: it gets no bounds.
+    bounds: Option<Bounds>,
+}
+
+impl<'a> Moving<'a> {
+    /// The piece as it goes right under the item that lies at `origin` on the canvas, or to
+    /// the top for the center of the canvas.
+    fn of(piece: &Piece<'a>, origin: Option<(f64, f64)>) -> Moving<'a> {
+        let bounds = match (piece.place, origin) {
+            (Some(place), Some((x, y))) => Some(place.moved_by(-x, -y)),
+            _ => None,
+        };
+        Moving {
+            item: piece.item,
+            below: piece.below.clone(),
+            bounds,
+        }
     }
-    let left = sides_dropped(model, &joining);
+
+    /// The bounds to write: none when they stay as they are stored.
+    fn new_bounds(&self) -> Option<Bounds> {
+        self.bounds
+            .filter(|bounds| bounds_of(self.item) != Some(*bounds))
+    }
+
+    /// The item and the items under it, in their order.
+    fn items(&self) -> impl Iterator<Item = &'a Item> + '_ {
+        std::iter::once(self.item).chain(self.below.iter().copied())
+    }
+}
+
+/// Cards, callouts or groups let go on a card with Ctrl held become siblings of that card
+/// ([`sibling_ops`]), in one batch. `places` are where they were let go; one without a place
+/// stays where it is shown.
+pub fn group_cards(
+    model: &mut Model,
+    card_ids: Vec<String>,
+    target_id: String,
+    places: Vec<AtlasPlace>,
+) -> Cmd {
+    let pieces = pieces(model, &card_ids, &places);
+    change(model, sibling_ops(model, &pieces, &target_id))
+}
+
+/// The operations that make pieces siblings of the card `target_id`: they join its group, each
+/// where it lies among the items under the item of the group ([`put_under`]). When the card
+/// is in no group, a new item with an empty body is made where the card lies in the outline,
+/// and the card and the pieces go under it, the upper ones first. The new item lies at the
+/// centroid of them on the canvas. Either way, their bounds are written anew in the same
+/// batch, counted from the item they go under, so they stay where they lie (ADR 053).
+/// A piece belongs to one group only, so the pieces leave the groups they were in. The item of
+/// a group they leave stays ([`emptied`]). A piece does not join a group of its own tree, and
+/// one already in the group stays unless it was let go at a place. None for no card of that
+/// name, and when nothing joins.
+fn sibling_ops(model: &Model, pieces: &[Piece], target_id: &str) -> Vec<BatchOpInput> {
+    let is_card = card_entries(model).iter().any(|c| c.id() == target_id);
+    let target = pieces_named(model, target_id).filter(|_| is_card);
+    let Some(target) = target else {
+        return Vec::new();
+    };
+    let joining = pieces.iter().filter(|piece| !piece.holds(target.item));
     match target.group {
         Some(group) => {
-            // Counted from where the group of the target lies, as the target is
-            let joining: Vec<Moving> = joining
-                .iter()
-                .map(|card| Moving::of(card, target.frame))
+            let joining: Vec<&Piece> = joining
+                .filter(|piece| !piece.holds(group))
+                .filter(|piece| piece.dropped || !is_under(piece, group))
                 .collect();
-            let mut ops = put_under(model, group, &joining);
-            ops.extend(left);
-            change(model, ops)
+            // Counted from where the group of the target lies, as the target is
+            let moving: Vec<Moving> = joining
+                .iter()
+                .map(|piece| Moving::of(piece, target.frame))
+                .collect();
+            let mut ops = put_under(model, group, &moving);
+            ops.extend(tidied(model, &joining, Some(group)));
+            ops
         }
         None => {
-            let members: Vec<&Card> = std::iter::once(target).chain(joining).collect();
-            let origin = centroid(&members);
-            let members: Vec<(Item, Option<Bounds>)> = members
-                .iter()
-                .map(|card| (card.item.clone(), Moving::of(card, origin).bounds))
+            let joining: Vec<&Piece> = joining.collect();
+            if joining.is_empty() {
+                return Vec::new();
+            }
+            let members: Vec<&Piece> = std::iter::once(&target)
+                .chain(joining.iter().copied())
                 .collect();
-            let target_id = target.item.id.clone();
-            change_with_new_item(model, move |atlas_id, group_id| {
-                let members: Vec<Moving> = members
-                    .iter()
-                    .map(|(item, bounds)| Moving {
-                        item,
-                        bounds: *bounds,
-                    })
-                    .collect();
-                let members = in_reading_order(&members);
-                let bounds = origin.map(|(x, y)| Bounds {
-                    x,
-                    y,
-                    width: AUTO_WIDTH,
-                    height: CARD_HEIGHT,
-                });
-                let bounds: Vec<(&str, String)> = bounds
-                    .map(|bounds| (BOUNDS_KEY, bounds.to_string()))
-                    .into_iter()
-                    .collect();
-                let mut ops = vec![new_item(
-                    atlas_id.clone(),
-                    group_id.clone(),
-                    ItemPosition::after(&target_id),
-                    String::new(),
-                    &bounds,
-                )];
-                ops.extend(taken_behind(&atlas_id, &members, &group_id, 2));
-                ops.extend(left);
-                ops
-            })
+            let origin = centroid(&members);
+            let moving: Vec<Moving> = members
+                .iter()
+                .map(|piece| Moving::of(piece, origin))
+                .collect();
+            let bounds = origin.map(|(x, y)| Bounds {
+                x,
+                y,
+                width: AUTO_WIDTH,
+                height: CARD_HEIGHT,
+            });
+            let bounds: Vec<(&str, String)> = bounds
+                .map(|bounds| (BOUNDS_KEY, bounds.to_string()))
+                .into_iter()
+                .collect();
+            let page_id = &target.item.page_id;
+            let mut ops = vec![new_item(
+                page_id.clone(),
+                NEW_GROUP.to_string(),
+                ItemPosition::after(&target.item.id),
+                String::new(),
+                &bounds,
+            )];
+            let members = in_reading_order(&moving);
+            let level = target.item.level + 1;
+            ops.extend(taken_behind(page_id, &members, NEW_GROUP, level));
+            ops.extend(tidied(model, &joining, None));
+            ops
         }
     }
 }
 
-/// Whether one of the cards is still being made: it is named by a page of the directory that
-/// has no card. A page dropped from the list beside the canvas gets its card once the server
-/// has made the item, and what the shell sends right behind the drop comes before that.
-fn is_being_made(model: &Model, card_ids: &[String]) -> bool {
-    let cards = card_entries(model);
-    let has_card = |id: &String| cards.iter().any(|card| card.id() == id);
-    let is_page = |id: &String| dir_pages(model).any(|page| &page.id == id);
-    card_ids.iter().any(|id| is_page(id) && !has_card(id))
+/// The piece of one name, as it is shown.
+fn pieces_named<'a>(model: &'a Model, id: &str) -> Option<Piece<'a>> {
+    pieces(model, &[id.to_string()], &[]).pop()
 }
 
-/// The centroid of where the cards lie on the canvas, in whole numbers: the place of a parent
-/// that is made for them (ADR 053). A card that is not drawn does not count; none when no
-/// card is drawn.
-fn centroid(cards: &[&Card]) -> Option<(f64, f64)> {
-    let places: Vec<Bounds> = cards.iter().filter_map(|card| card.place).collect();
+/// Whether the piece is right under the item.
+fn is_under(piece: &Piece, parent: &Item) -> bool {
+    piece.group.is_some_and(|group| group.id == parent.id)
+}
+
+/// The centroid of where the pieces lie on the canvas, in whole numbers: the place of a parent
+/// that is made for them (ADR 053). A piece that is not drawn does not count; none when no
+/// piece is drawn.
+fn centroid(pieces: &[&Piece]) -> Option<(f64, f64)> {
+    let places: Vec<Bounds> = pieces.iter().filter_map(|piece| piece.place).collect();
     let mean =
         |of: fn(&Bounds) -> f64| (places.iter().map(of).sum::<f64>() / places.len() as f64).round();
     (!places.is_empty()).then(|| (mean(|b| b.x), mean(|b| b.y)))
 }
 
-/// Cards let go on the blob of a parent go under its item, each where it lies among the items
-/// under it ([`put_under`]). Cards let go on a card with Shift and Ctrl go under that card the
-/// same way: the card is named as the shell names it, and becomes a parent (ADR 053). Its own
-/// bounds stay, and those of its new children are counted from it. A card right under the parent already stays where it is in the
-/// outline. The bounds of a card are written anew in the same batch, counted from the parent,
-/// so the card stays where it lies on the canvas (ADR 053). The parent a card leaves loses its
-/// side when nothing stays under it.
-pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -> Cmd {
-    if is_being_made(model, &card_ids) {
-        let join = AtlasJoin::Parent {
-            card_ids,
-            parent_id,
-        };
-        model.atlas_joins.push(join);
-        return done();
-    }
+/// Cards, callouts or groups let go on the blob of a parent with Ctrl held, or on a card with
+/// Shift and Ctrl held, go under that item ([`under_ops`]), in one batch. `places` are where
+/// they were let go; one without a place stays where it is shown.
+pub fn move_cards(
+    model: &mut Model,
+    card_ids: Vec<String>,
+    parent_id: String,
+    places: Vec<AtlasPlace>,
+) -> Cmd {
+    let pieces = pieces(model, &card_ids, &places);
+    change(model, under_ops(model, &pieces, &parent_id))
+}
+
+/// The operations that put pieces under the item `parent_id`, each where it lies among the
+/// items under it ([`put_under`]). A parent is named by its item, and a card as the shell names
+/// it: a card becomes a parent this way (ADR 053). Its own bounds stay, and those of the pieces
+/// are written anew in the same batch, counted from it, so they stay where they lie on the
+/// canvas. A piece right under the item already stays where it is in the outline, unless it
+/// was let go at a place. Nothing goes under an item of its own tree. The parent a piece
+/// leaves stays ([`emptied`]).
+fn under_ops(model: &Model, pieces: &[Piece], parent_id: &str) -> Vec<BatchOpInput> {
     let cards = card_entries(model);
-    // A parent is named by its item, a card as the shell names it
     let of_parent = entries(model)
         .into_iter()
         .find(|e| e.is_parent && e.item.id == parent_id)
@@ -818,22 +975,21 @@ pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -
         card.map(|card| (card.item, card.place))
     };
     let Some((parent, place)) = of_parent.or_else(of_card) else {
-        return done();
+        return Vec::new();
     };
     let origin = place.map(|place| (place.x, place.y));
-    let joining: Vec<&Card> = cards
+    let joining: Vec<&Piece> = pieces
         .iter()
-        .filter(|card| card_ids.iter().any(|id| id == card.id()))
-        .filter(|card| card.item.id != parent.id)
-        .filter(|card| card.group.is_none_or(|group| group.id != parent.id))
+        .filter(|piece| !piece.holds(parent))
+        .filter(|piece| piece.dropped || !is_under(piece, parent))
         .collect();
-    let items: Vec<Moving> = joining
+    let moving: Vec<Moving> = joining
         .iter()
-        .map(|card| Moving::of(card, origin))
+        .map(|piece| Moving::of(piece, origin))
         .collect();
-    let mut ops = put_under(model, parent, &items);
-    ops.extend(sides_dropped(model, &joining));
-    change(model, ops)
+    let mut ops = put_under(model, parent, &moving);
+    ops.extend(tidied(model, &joining, Some(parent)));
+    ops
 }
 
 /// The items under an item, at any depth, in their order.
@@ -883,8 +1039,12 @@ fn in_reading_order<'a>(cards: &[Moving<'a>]) -> Vec<Moving<'a>> {
 /// over an order made in the outline (ADR 053).
 fn put_under(model: &Model, parent: &Item, joining: &[Moving]) -> Vec<BatchOpInput> {
     let level = parent.level + 1;
+    let is_joining = |item: &Item| {
+        let mut going = joining.iter().flat_map(Moving::items);
+        going.any(|going| going.id == item.id)
+    };
     let staying: Vec<&Item> = under(model, parent)
-        .filter(|item| !joining.iter().any(|j| j.item.id == item.id))
+        .filter(|item| !is_joining(item))
         .collect();
     let joining = in_reading_order(joining);
     let siblings = || staying.iter().filter(|item| item.level == level);
@@ -893,8 +1053,8 @@ fn put_under(model: &Model, parent: &Item, joining: &[Moving]) -> Vec<BatchOpInp
         let first_below = |card: &Moving| siblings().find(|s| lies_below(s, card)).map(|s| &s.id);
         joining
             .iter()
-            .copied()
             .filter(|card| first_below(card) == sibling.map(|s| &s.id))
+            .cloned()
             .collect()
     };
     let mut ops = Vec::new();
@@ -912,10 +1072,10 @@ fn put_under(model: &Model, parent: &Item, joining: &[Moving]) -> Vec<BatchOpInp
     ops
 }
 
-/// The groups the cards are in, each once, in the order of the cards.
-fn groups_of<'a>(cards: &[&Card<'a>]) -> Vec<&'a Item> {
+/// The groups the pieces are right under, each once, in the order of the pieces.
+fn groups_of<'a>(pieces: &[&Piece<'a>]) -> Vec<&'a Item> {
     let mut groups: Vec<&Item> = Vec::new();
-    for group in cards.iter().filter_map(|card| card.group) {
+    for group in pieces.iter().filter_map(|piece| piece.group) {
         if !groups.iter().any(|g| g.id == group.id) {
             groups.push(group);
         }
@@ -923,39 +1083,41 @@ fn groups_of<'a>(cards: &[&Card<'a>]) -> Vec<&'a Item> {
     groups
 }
 
-/// The operations that take the side away from each group that the cards leave with no item
-/// under it.
-fn sides_dropped(model: &Model, leaving: &[&Card]) -> Vec<BatchOpInput> {
-    let items: Vec<&Item> = leaving.iter().map(|card| card.item).collect();
+/// The operations that tidy each group that the pieces leave with no item under it
+/// ([`emptied`]). Not `joined`, the item they go under: a piece that only moves in it does
+/// not leave it.
+fn tidied(model: &Model, leaving: &[&Piece], joined: Option<&Item>) -> Vec<BatchOpInput> {
+    let items: Vec<&Item> = leaving.iter().flat_map(|piece| piece.items()).collect();
     groups_of(leaving)
         .into_iter()
-        .filter_map(|group| side_dropped(model, group, &items))
+        .filter(|group| joined.is_none_or(|joined| joined.id != group.id))
+        .filter_map(|group| emptied(model, group, &items))
         .collect()
 }
 
-/// Cards taken out of their groups, as when they are dragged out of the outline of their
-/// group with Ctrl held. A card goes behind the tree of its group, at the level of the group
-/// item. Its bounds are written anew in the same batch, counted from what the group is counted
-/// from, so it stays where it lies on the canvas (ADR 053). The item of the group stays, even with one card or none under it (ADR 053). With
-/// none, it loses its side.
-pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
-    let cards = card_entries(model);
-    let leaving: Vec<&Card> = cards
+/// Cards, callouts or groups taken out of their groups, as when they are dragged out of the
+/// outline of their group with Ctrl held. A piece goes behind the tree of its group, at the
+/// level of the group item. Its bounds are written anew in the same batch, counted from what
+/// the group is counted from, so it stays where it lies on the canvas, or where it was let go
+/// (ADR 053). The item of the group stays ([`emptied`]).
+pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>, places: Vec<AtlasPlace>) -> Cmd {
+    let pieces = pieces(model, &card_ids, &places);
+    let leaving: Vec<&Piece> = pieces
         .iter()
-        .filter(|card| card.group.is_some() && card_ids.iter().any(|id| id == card.id()))
+        .filter(|piece| piece.group.is_some())
         .collect();
-    let all: Vec<&Item> = leaving.iter().map(|card| card.item).collect();
+    let all: Vec<&Item> = leaving.iter().flat_map(|piece| piece.items()).collect();
     let ops: Vec<BatchOpInput> = groups_of(&leaving)
         .into_iter()
         .flat_map(|group| {
             let of_group: Vec<Moving> = leaving
                 .iter()
-                .filter(|card| card.group.is_some_and(|g| g.id == group.id))
-                .map(|card| Moving::of(card, card.frame_of_group()))
+                .filter(|piece| is_under(piece, group))
+                .map(|piece| Moving::of(piece, piece.frame_of_group()))
                 .collect();
             let last = last_staying(model, group, &all);
             let mut ops = taken_behind(&group.page_id, &of_group, &last.id, group.level);
-            ops.extend(side_dropped(model, group, &all));
+            ops.extend(emptied(model, group, &all));
             ops
         })
         .collect();
@@ -1185,19 +1347,21 @@ pub fn add_callout(model: &mut Model, x: f64, y: f64, side: String, text: String
     }
     let bounds = callout_bounds(x, y, 1.0).to_string();
     let side = side_or_default(&side).to_string();
-    change_with_new_item(model, move |atlas_id, id| {
-        vec![new_item(
-            atlas_id,
-            id,
-            ItemPosition::Last,
-            text,
-            &[
-                (TYPE_KEY, CALLOUT_TYPE.to_string()),
-                (BOUNDS_KEY, bounds),
-                (SIDE_KEY, side),
-            ],
-        )]
-    })
+    let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
+        return done();
+    };
+    let callout = new_item(
+        atlas_id,
+        NEW_CARD.to_string(),
+        ItemPosition::Last,
+        text,
+        &[
+            (TYPE_KEY, CALLOUT_TYPE.to_string()),
+            (BOUNDS_KEY, bounds),
+            (SIDE_KEY, side),
+        ],
+    );
+    change(model, vec![callout])
 }
 
 /// Changes the text and the side of a callout of the shown atlas page. It keeps its place and

@@ -1,7 +1,7 @@
 //! Dropping what waits beside the canvas onto it (ADR 053). The item always becomes an item
 //! of the top at the end of the page, placed at the point of the drop. With Ctrl held on a
-//! card or on a group, the shell then sends what it sends for a card of the canvas let go
-//! there with Ctrl, so the item joins as such a card does.
+//! card it becomes a sibling of the card, and with Ctrl on a group, or Shift and Ctrl on a
+//! card, a child of that item: one batch each, as for what is dragged on the canvas.
 
 use super::*;
 
@@ -155,11 +155,11 @@ fn a_dropped_parent_without_a_place_takes_what_is_under_it_along() {
 }
 
 /// The group `g` at 100,200 with the cards of one and two under it, one above the other, the
-/// card of three at the top, and a note that waits for a place under an item that is not
-/// drawn.
-fn atlas_with_a_group_and_a_waiting_note() -> Harness {
-    let mut h = atlas_of(
-        vec![child("one"), child("three"), child("two")],
+/// card of three at the top, and under an item that is not drawn a note with an item under
+/// it, and a callout. The page of four has no card.
+fn atlas_with_a_group_and_what_waits() -> Harness {
+    atlas_of(
+        vec![child("four"), child("one"), child("three"), child("two")],
         vec![
             parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
             card_item("one", 2, Some("0,0,0,40")),
@@ -167,169 +167,196 @@ fn atlas_with_a_group_and_a_waiting_note() -> Harness {
             card_item("three", 1, Some("300,300,0,40")),
             atlas_item("hidden", 1, "hidden", &[]),
             atlas_item("note", 2, "note", &[("atlas_bounds", "1,1,0,40")]),
+            atlas_item("sub", 3, "sub", &[]),
+            atlas_item("call", 2, "Hi", &[("atlas_type", "callout")]),
         ],
-    );
-    h.api
-        .fail_next("GetPageById", "not read again in this test");
-    h
+    )
 }
 
-// Ctrlを押してグループの上にドロップした項目は、キャンバスのカードをCtrlでそこに放したときと同じに、そのグループの親の子になる。`atlas_bounds`は親からの相対の座標で、兄弟の中の入り先は、その座標のYで決まる。
-#[test]
-fn an_item_dropped_with_ctrl_on_a_group_goes_under_its_parent_as_a_card_of_the_canvas_does() {
-    let mut h = atlas_with_a_group_and_a_waiting_note();
-    drop_on(&mut h, "note", 130.0, 250.0);
-    h.send(Event::MoveAtlasCards {
-        card_ids: vec!["note".into()],
-        parent_id: "g".into(),
+/// What is sent for an item of [`atlas_with_a_group_and_what_waits`] dropped with its center
+/// at the point, with Ctrl on the card `target` or to go under the item `parent`
+fn dropped_onto(
+    card: &str,
+    (x, y): (f64, f64),
+    target: Option<&str>,
+    parent: Option<&str>,
+) -> Vec<Vec<BatchOpInput>> {
+    let mut h = atlas_with_a_group_and_what_waits();
+    h.send(Event::DropAtlasCard {
+        card_id: card.into(),
+        x,
+        y,
+        grab_x: 0.5,
+        grab_y: 0.5,
+        target_id: target.map(str::to_string),
+        parent_id: parent.map(str::to_string),
     });
+    assert!(upserts(&h).is_empty());
+    batches(&h)
+}
 
+// Ctrlを押してグループの上にドロップした項目は、1回の送信で、そのグループの親の子になる。`atlas_bounds`は親からの相対の座標で、兄弟の中の入り先は、その座標のYで決まる。下の項目は、子のまま一緒に動く。コールアウトも同じに入る。
+#[test]
+fn an_item_dropped_with_ctrl_on_a_group_goes_under_its_parent_in_one_batch() {
     assert_eq!(
-        batches(&h),
-        [
-            vec![leveled_at("note", 1, "130,250,0,40"), moved_last(&["note"])],
-            vec![
-                leveled_at("note", 2, "30,50,0,40"),
-                moved(&["note"], "i-one")
-            ],
-        ]
+        dropped_onto("note", (130.0, 250.0), None, Some("g")),
+        [[
+            leveled_at("note", 2, "30,50,0,40"),
+            leveled("sub", 3),
+            moved(&["note", "sub"], "i-one"),
+        ]]
+    );
+    assert_eq!(
+        dropped_onto("call", (130.0, 350.0), None, Some("g")),
+        [[
+            leveled_at("call", 2, "30,150,0,40"),
+            moved(&["call"], "i-two")
+        ]]
     );
 }
 
-// Ctrlを押して、グループにないカードの上にドロップした項目は、キャンバスのカードと同じに、そのカードと2つで新しいグループを作る。新しい親は、2つの座標の重心にある。
+// Ctrlを押して、グループにないカードの上にドロップした項目は、1回の送信で、そのカードと2つで新しいグループを作る。新しい親は、本文が空の項目で、2つの座標の重心にある。グループのカードの上では、そのグループに入る。
 #[test]
-fn an_item_dropped_with_ctrl_on_a_lone_card_makes_a_new_group_of_the_two() {
-    let mut h = atlas_with_a_group_and_a_waiting_note();
-    drop_on(&mut h, "note", 320.0, 340.0);
-    group(&mut h, &["note"], "a/b/three");
-
+fn an_item_dropped_with_ctrl_on_a_card_becomes_its_sibling_in_one_batch() {
     assert_eq!(
-        batches(&h)[1],
-        [
-            made(
-                ItemPosition::after("i-three"),
-                "",
-                &[("atlas_bounds", "310,320,0,40")]
-            ),
+        dropped_onto("note", (320.0, 340.0), Some("a/b/three"), None),
+        [[
+            made_group(ItemPosition::after("i-three"), "310,320,0,40"),
             leveled_at("i-three", 2, "-10,-20,0,40"),
             leveled_at("note", 2, "10,20,0,40"),
-            moved(&["i-three", "note"], NEW),
-        ]
+            leveled("sub", 3),
+            moved(&["i-three", "note", "sub"], NEW),
+        ]]
+    );
+    assert_eq!(
+        dropped_onto("note", (130.0, 250.0), Some("a/b/one"), None),
+        [[
+            leveled_at("note", 2, "30,50,0,40"),
+            leveled("sub", 3),
+            moved(&["note", "sub"], "i-one"),
+        ]]
     );
 }
 
-/// The group `g` at 100,200 with the cards of one and two under it, and the card of three at
-/// the top. The page of four has no card.
-fn atlas_with_a_page_not_added() -> Vec<Item> {
-    vec![
-        parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
-        card_item("one", 2, Some("0,0,0,40")),
-        card_item("two", 2, Some("0,100,0,40")),
-        card_item("three", 1, Some("300,300,0,40")),
-    ]
-}
-
-/// The atlas of [`atlas_with_a_page_not_added`] after the page of four was dropped at 130,250
-/// with Ctrl, while the server is slow: the shell has sent what follows the drop, but the
-/// card is not made yet. `made` is the outline the server answers with once it is.
-fn page_dropped_with_ctrl(follows: Event, made: Vec<Item>) -> Harness {
-    let pages = ["four", "one", "three", "two"].map(child).to_vec();
-    let mut h = atlas_of(pages, atlas_with_a_page_not_added());
-    answer_outline(&mut h, made);
-    h.hold("ApplyBatch");
-    drop_on(&mut h, "a/b/four", 130.0, 250.0);
-    h.send(follows);
-    h
-}
-
-// 未追加のページをCtrlを押してグループやカードの上にドロップすると、ページの末尾にカードができたあとで、キャンバスのカードと同じにグループに入る。シェルは2つの操作を続けて送るので、カードができる前に届いた操作は、カードができるまで待つ。
+// ShiftとCtrlを押してカードの上にドロップした項目は、1回の送信で、そのカードの子になる。カードは親になり、項目の`atlas_bounds`はカードからの相対の座標になる。
 #[test]
-fn a_page_with_no_card_dropped_with_ctrl_joins_once_its_card_is_made() {
-    let made = || {
-        let mut items = atlas_with_a_page_not_added();
-        items.push(card_item("four", 1, Some("130,250,0,40")));
-        items
-    };
-    let onto_the_group = Event::MoveAtlasCards {
-        card_ids: vec!["a/b/four".into()],
-        parent_id: "g".into(),
-    };
-    let onto_the_card = Event::GroupAtlasCards {
-        card_ids: vec!["a/b/four".into()],
-        target_id: "a/b/three".into(),
-    };
-
-    let mut h = page_dropped_with_ctrl(onto_the_group, made());
-    assert!(batches(&h).is_empty());
-    h.release_held();
+fn an_item_dropped_with_shift_and_ctrl_on_a_card_goes_under_the_card_in_one_batch() {
     assert_eq!(
-        batches(&h)[1],
-        [
-            leveled_at("i-four", 2, "30,50,0,40"),
-            moved(&["i-four"], "i-one")
-        ]
+        dropped_onto("note", (320.0, 340.0), None, Some("a/b/three")),
+        [[
+            leveled_at("note", 2, "20,40,0,40"),
+            leveled("sub", 3),
+            moved(&["note", "sub"], "i-three"),
+        ]]
     );
+}
 
-    let mut h = page_dropped_with_ctrl(onto_the_card, made());
-    h.release_held();
+// 未追加のページをCtrlやShift+Ctrlでドロップしても、1回の送信である。ページの末尾にそのページへのwikilinkの項目を作り、同じ送信で、グループやカードの子にする。
+#[test]
+fn a_page_with_no_card_dropped_with_a_key_gets_its_item_and_joins_in_one_batch() {
+    let made_card = || {
+        made(
+            ItemPosition::Last,
+            "[[a/b/four]]",
+            &[("atlas_bounds", "130,250,0,40")],
+        )
+    };
+
     assert_eq!(
-        batches(&h)[1],
-        [
+        dropped_onto("a/b/four", (130.0, 250.0), None, Some("g")),
+        [[
+            made_card(),
+            leveled_at(NEW, 2, "30,50,0,40"),
+            moved(&[NEW], "i-one"),
+        ]]
+    );
+    assert_eq!(
+        dropped_onto("a/b/four", (130.0, 250.0), Some("a/b/three"), None),
+        [[
+            made_card(),
             made_group(ItemPosition::after("i-three"), "215,275,0,40"),
-            leveled_at("i-four", 2, "-85,-25,0,40"),
+            leveled_at(NEW, 2, "-85,-25,0,40"),
             leveled_at("i-three", 2, "85,25,0,40"),
-            moved(&["i-four", "i-three"], NEW),
-        ]
+            moved(&[NEW, "i-three"], NEW),
+        ]]
+    );
+    assert_eq!(
+        dropped_onto("a/b/four", (130.0, 250.0), None, Some("a/b/three")),
+        [[
+            made_card(),
+            leveled_at(NEW, 2, "-170,-50,0,40"),
+            moved(&[NEW], "i-three"),
+        ]]
+    );
+    // Without a key, or on nothing that takes it: only the item
+    assert_eq!(
+        dropped_onto("a/b/four", (130.0, 250.0), None, None),
+        [[made_card()]]
+    );
+    assert_eq!(
+        dropped_onto("a/b/four", (130.0, 250.0), None, Some("none")),
+        [[made_card()]]
     );
 }
 
-// カードができなかったときは、待っていた操作は捨てられる。あとでそのページのカードができても、グループには入らない。
+// キーを押していても、名指しされた相手が項目を受け取れなければ、Ctrlなしと同じに、ページの末尾のトップレベルに入る。相手が、ない項目、描かれていないカード、ドロップした項目自身、その下の項目のときである。
 #[test]
-fn what_waits_for_a_card_that_is_not_made_is_given_up() {
-    let onto_the_group = Event::MoveAtlasCards {
-        card_ids: vec!["a/b/four".into()],
-        parent_id: "g".into(),
-    };
-    // The outline comes back without the card
-    let mut h = page_dropped_with_ctrl(onto_the_group, atlas_with_a_page_not_added());
-    h.release_held();
-    let mut later = atlas_with_a_page_not_added();
-    later.push(card_item("four", 1, Some("130,250,0,40")));
-    h.send(Event::AtlasChanged {
-        atlas_id: ATLAS_ID.into(),
-        items: later,
-    });
+fn a_drop_on_what_cannot_take_the_item_goes_to_the_top() {
+    let to_the_top = [vec![
+        leveled_at("note", 1, "10,20,0,40"),
+        leveled("sub", 2),
+        moved_last(&["note", "sub"]),
+    ]];
+    let at = (10.0, 20.0);
 
-    assert_eq!(batches(&h).len(), 1);
-    assert_eq!(bounds_of(&h, "a/b/four").map(|b| b.x), Some(130.0));
+    assert_eq!(dropped_onto("note", at, Some("none"), None), to_the_top);
+    assert_eq!(dropped_onto("note", at, None, Some("none")), to_the_top);
+    assert_eq!(dropped_onto("note", at, Some("note"), None), to_the_top);
+    assert_eq!(dropped_onto("note", at, None, Some("note")), to_the_top);
+    assert_eq!(dropped_onto("note", at, None, Some("sub")), to_the_top);
+    // A callout takes nothing
+    assert_eq!(dropped_onto("note", at, None, Some("call")), to_the_top);
 }
 
-// 待つのは、カードがこれからできるページだけである。カードでない項目（子を持つ項目）を名指しした操作は、待たずに捨てられ、あとでその項目がカードになっても、グループには入らない。
+// 親のただ1つの子を、Ctrlを押してその親の上にドロップすると、親の子のまま、ドロップした場所に置かれる。親は子を失わないので、何も失わない。別の親へ移れば、元の親は、同じ送信で辺を失い、空の本文には`no title`が書かれる。
 #[test]
-fn only_a_page_whose_card_is_being_made_is_waited_for() {
-    let group = || {
-        vec![
-            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
-            card_item("one", 2, Some("0,0,0,40")),
-        ]
+fn a_parent_keeps_its_only_item_dropped_on_it_and_is_tidied_when_the_item_goes() {
+    let atlas = || {
+        atlas_of(
+            vec![child("one")],
+            vec![
+                parent_item("p", 1, "", &[("atlas_side", "left")]),
+                atlas_item("only", 2, "only", &[]),
+                card_item("one", 1, Some("300,300,0,40")),
+            ],
+        )
     };
-    let mut items = group();
-    items.push(parent_item("note", 1, "note", &[]));
-    items.push(atlas_item("sub", 2, "sub", &[]));
-    let mut h = atlas_of(vec![child("one"), child("two")], items);
-    h.send(Event::MoveAtlasCards {
-        card_ids: vec!["note".into()],
-        parent_id: "g".into(),
-    });
-    // The item under the note is gone: the note is a card now
-    let mut later = group();
-    later.push(parent_item("note", 1, "note", &[]));
-    h.send(Event::AtlasChanged {
-        atlas_id: ATLAS_ID.into(),
-        items: later,
-    });
+    let dropped = |at: (f64, f64), parent: &str| {
+        let mut h = atlas();
+        h.send(Event::DropAtlasCard {
+            card_id: "only".into(),
+            x: at.0,
+            y: at.1,
+            grab_x: 0.5,
+            grab_y: 0.5,
+            target_id: None,
+            parent_id: Some(parent.into()),
+        });
+        batches(&h)
+    };
 
-    assert!(batches(&h).is_empty());
+    assert_eq!(
+        dropped((10.0, 20.0), "p"),
+        [[leveled_at("only", 2, "10,20,0,40"), moved(&["only"], "p")]]
+    );
+    assert_eq!(
+        dropped((310.0, 320.0), "a/b/one"),
+        [[
+            leveled_at("only", 2, "10,20,0,40"),
+            moved(&["only"], "i-one"),
+            emptied("p", Some("no title"), true),
+        ]]
+    );
 }
 
 // ドロップが拒否されると、アラートが表示され、項目は元の場所と元の`atlas_bounds`に戻る。
