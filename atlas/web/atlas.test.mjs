@@ -69,3 +69,21 @@ test('a drag with Ctrl can leave each group of its cards that other cards stay i
   });
   assert.deepEqual(sorted(held), ['inner', 'outer']);
 });
+
+// グループのただ1つの子をドラッグしても、そのグループを出られる
+test('a drag with Ctrl can leave a group whose only card it drags', () => {
+  const held = atlas.heldGroups({ dragged: [['solo']], staying: [['elsewhere']] });
+  assert.deepEqual(sorted(held), ['solo']);
+});
+
+// グループのすべての子をドラッグしても、そのグループを出られる
+test('a drag with Ctrl can leave a group all of whose cards it drags', () => {
+  const held = atlas.heldGroups({ dragged: [['pair'], ['pair']], staying: [] });
+  assert.deepEqual(sorted(held), ['pair']);
+});
+
+// ドラッグしたグループは、その周りのグループを、どれも出られる
+test('a dragged group can leave each group around it with Ctrl', () => {
+  const held = atlas.heldGroups({ around: ['inner', 'outer'] });
+  assert.deepEqual(sorted(held), ['inner', 'outer']);
+});
