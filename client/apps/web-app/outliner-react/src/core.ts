@@ -143,6 +143,24 @@ export class Core {
     return this.shell.wikiQueryAt(text, cursor);
   }
 
+  /**
+   * What a text typed from `before` to `text` becomes with the cursor at the UTF-16 place
+   * `cursor`: an opening just typed gets its closing, as in the editor of a page. Undefined
+   * when it stays as it is.
+   */
+  autoClosed(before: string, text: string, cursor: number): string | undefined {
+    return this.shell.autoClosed(before, text, cursor);
+  }
+
+  /**
+   * The text with the page name `title` put into the `[[wiki link]]` that the cursor at the
+   * UTF-16 place `cursor` is in, as JSON `{ text, cursor }`, the cursor after the name.
+   * Undefined outside a link.
+   */
+  wikiPicked(text: string, cursor: number, title: string): string | undefined {
+    return this.shell.wikiPicked(text, cursor, title);
+  }
+
   /** The URL of the page of the tag `tag`, in the folder of the tags `tagsDir`. */
   tagUrl(tagsDir: string, tag: string): string {
     return this.shell.tagUrl(tagsDir, tag);

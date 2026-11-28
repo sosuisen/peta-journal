@@ -1,0 +1,127 @@
+/* The dialog of a text of an atlas, drawn as the confirm dialog of the app is. The body of
+   the Preview takes the stylesheet of the page body, which this file does not hold. */
+.atlas-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.atlas-dialog {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 20px 24px;
+  width: min(560px, calc(100vw - 32px));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.atlas-dialog-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.atlas-dialog-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #ddd;
+}
+.atlas-dialog-tabs button {
+  padding: 4px 12px;
+  font-size: 13px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  cursor: pointer;
+  color: #555;
+}
+.atlas-dialog-tabs button[aria-selected='true'] {
+  border-bottom-color: #4a90d9;
+  color: #222;
+}
+/* The box and the Preview keep one height, so the dialog does not jump between the tabs */
+.atlas-dialog-text,
+.atlas-dialog-preview {
+  height: 240px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+.atlas-dialog-text {
+  width: 100%;
+  resize: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.atlas-dialog-text:focus {
+  outline: 2px solid #4a90d9;
+  outline-offset: -1px;
+}
+.atlas-dialog-sides {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+.atlas-dialog-sides label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.atlas-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.atlas-dialog-buttons button {
+  padding: 6px 16px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+.atlas-dialog-buttons button:focus {
+  outline: 2px solid #4a90d9;
+  outline-offset: 1px;
+}
+.atlas-dialog-buttons .atlas-dialog-ok {
+  background: #4a90d9;
+  border-color: #4a90d9;
+  color: #fff;
+}
+
+/* The page names for the `[[` being typed, as the popup of the editor of a page shows them */
+.atlas-dialog-suggestions {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 2001;
+  min-width: 200px;
+  max-width: 400px;
+  padding: 4px 0;
+}
+.atlas-dialog-suggestion {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.atlas-dialog-suggestion.selected {
+  background: #e8f0fe;
+}
+.atlas-dialog-suggestion:hover {
+  background: #f0f0f0;
+}

@@ -91,6 +91,24 @@ export class WebShell {
   /** The text inside the wiki link at the cursor. */
   wikiQuery: (text: string, cursor: number) => string | undefined = () =>
     undefined;
+  /** The text with a page name put in the link at the cursor, as JSON. */
+  wikiPick: (
+    text: string,
+    cursor: number,
+    title: string,
+  ) => string | undefined = () => undefined;
+  /** The text with the opening just typed closed, as the editor of a page closes it. */
+  autoClose: (
+    before: string,
+    text: string,
+    cursor: number,
+  ) => string | undefined = () => undefined;
+  /** What `autoClosed` was asked, in order. */
+  readonly closes: [string, string, number][] = [];
+  /** What `wikiPicked` was asked, in order. */
+  readonly picks: [string, number, string][] = [];
+  /** The folders of the tags that each `bodyHtml` was given, in order. */
+  readonly tagDirs: string[] = [];
   /** The changes the next call answers, once. */
   private reply: string | null = null;
   /** The changes that `changes()` gives after a render. */
@@ -168,6 +186,16 @@ export class WebShell {
     return this.wikiQuery(text, cursor);
   }
 
+  autoClosed(before: string, text: string, cursor: number): string | undefined {
+    this.closes.push([before, text, cursor]);
+    return this.autoClose(before, text, cursor);
+  }
+
+  wikiPicked(text: string, cursor: number, title: string): string | undefined {
+    this.picks.push([text, cursor, title]);
+    return this.wikiPick(text, cursor, title);
+  }
+
   // The ids alone, so a test sees which cards and callouts were given
   atlasCards(cards: string, links: string): string {
     const ids = (text: string, id: string) =>
@@ -185,7 +213,8 @@ export class WebShell {
   }
 
   // The text as it is, so a test sees that the HTML comes from here
-  bodyHtml(text: string): string {
+  bodyHtml(text: string, tagsDir: string): string {
+    this.tagDirs.push(tagsDir);
     return `<p>${text}</p>`;
   }
 

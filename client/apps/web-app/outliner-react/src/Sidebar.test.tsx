@@ -263,8 +263,8 @@ describe('the sort of the index', () => {
     ).toEqual({ 'work/': { key: 'name', order: 'desc' } });
   });
 
-  // メニューは、もう一度押すか、外のクリックか、Escapeで閉じる。メニューの中のクリックでは閉じない。
-  test('the menu closes on a second press, a click outside and Escape, not on a click inside', () => {
+  // メニューは、もう一度押すか、外を押すのか、Escapeで閉じる。メニューの中のクリックでは閉じない。
+  test('the menu closes on a second press, a press outside and Escape, not on a click inside', () => {
     sidebar();
     const menu = () => document.querySelector('.index-sort-menu');
 
@@ -274,7 +274,7 @@ describe('the sort of the index', () => {
     fireEvent.click(screen.getByTitle('Sort'));
     const pressedAgain = menu();
     openMenu();
-    fireEvent.click(document.body);
+    fireEvent.pointerDown(document.body);
     const clickedOutside = menu();
     openMenu();
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -455,14 +455,14 @@ describe('a right click on a page', () => {
     expect(document.querySelector('.sidebar-context-menu')).toBeNull();
   });
 
-  // メニューは、外のクリックとEscapeで閉じる。
-  test('the menu closes on a click outside and on Escape', () => {
+  // メニューは、外を押すのとEscapeで閉じる。
+  test('the menu closes on a press outside and on Escape', () => {
     sidebar();
     const open = () => fireEvent.contextMenu(screen.getAllByText('diary')[0]);
     const menu = () => document.querySelector('.sidebar-context-menu');
 
     open();
-    fireEvent.click(document.body);
+    fireEvent.pointerDown(document.body);
     const clicked = menu();
     open();
     fireEvent.keyDown(document, { key: 'Escape' });

@@ -90,7 +90,6 @@ fn the_first_changes_are_a_reset_of_every_list_and_every_panel() {
                 Panel::AtlasCallouts(view.atlas_callouts.clone()),
                 Panel::AtlasLinks(view.atlas_links.clone()),
                 Panel::AtlasUnplaced(view.atlas_unplaced.clone()),
-                Panel::AtlasLinkSuggestions(view.atlas_link_suggestions.clone()),
                 Panel::Outline(OutlinePanel {
                     selection_mode: outline.selection_mode,
                     focus_request: outline.focus_request.clone(),

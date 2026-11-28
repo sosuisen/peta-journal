@@ -13,11 +13,11 @@ const loaded = (n: number) =>
 
 // アトラスのスクリプト
 describe('the scripts of the atlas', () => {
-  // スクリプトは、PixiJS、tweedle、@pixi/ui、atlas.jsの順である。前のものがグローバルに置くものを、後のものが使う。
-  test('the scripts are PixiJS, tweedle, @pixi/ui and atlas.js, in this order', () => {
+  // スクリプトは、PixiJSとatlas.jsの順である。atlas.jsは、PixiJSがグローバルに置くものを使う。
+  test('the scripts are PixiJS and atlas.js, in this order', () => {
     expect(
       ATLAS_SCRIPTS.map(url => url.split('/').pop()?.split('?')[0]),
-    ).toEqual(['pixi.min.js', 'tweedle.umd.js', 'pixi-ui.js', 'atlas.js']);
+    ).toEqual(['pixi.min.js', 'atlas.js']);
   });
 
   // 1つずつ順に読み、前のものを読み終えてから次を足す。すべて読み終えたら、約束が果たされる。

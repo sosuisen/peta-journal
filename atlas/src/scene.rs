@@ -510,9 +510,9 @@ mod tests {
         );
     }
 
-    // ノーマルカードは、ラベルから描いた黄色のblobを持ち、何も開かず、1行目の文字の並びを持つ。
+    // ノーマルカードは、ラベルから描いたblobを持ち、何も開かず、1行目の文字の並びを持つ。
     #[test]
-    fn a_plain_card_is_yellow_opens_nothing_and_has_the_runs_of_its_first_line() {
+    fn a_plain_card_has_its_own_blob_opens_nothing_and_has_the_runs_of_its_first_line() {
         let runs = vec![
             Run {
                 text: "see ".to_string(),

@@ -22,12 +22,13 @@
 // a group is made of them, and in the area of a group, they join it. A drop with Shift and
 // Ctrl makes them children of the card they are let go on, and does nothing more in the area
 // of a group. What would take the drop shows it in a color of its own for each of the two.
-// A double click on a callout or a link card, or its menu, opens its dialog.
-// The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of pixi-ui.js beside this file.
+// A double click on a callout or a link card, or its menu, opens its dialog, which the shell
+// draws (setOnText).
+// The menus are drawn with PixiJS alone.
 // A canvas that is not editable only shows the atlas, as a static site does: a drag with
 // either button moves the view, the wheel scales it, and a click on a label opens its page.
-// It needs no @pixi/ui. A card whose label is hidden (`masked`) shows a softened blob only,
-// and opens nothing.
+// The right button on a card opens View Text, when the page has set onText. A card whose label
+// is hidden (`masked`) shows a softened blob only, and opens nothing.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
 //
@@ -62,6 +63,11 @@ const SIBLING_COLOR = 0xef4444;
 const CHILD_COLOR = 0x16a34a;
 // How far the outline of a group keeps away from the cards in it
 const GROUP_PADDING = 14;
+// The radius of the circle that a group whose children are only callouts is drawn as, around
+// the place of its item: about the outline of a group around one card
+const CIRCLE_RADIUS = 40;
+// How many points make that circle before the outline smooths them
+const CIRCLE_POINTS = 16;
 // How much the background of a card hides what lies behind it, while it is a drop target
 const CARD_ALPHA = 0.4;
 // How strong the icon behind the label of a card is
@@ -83,13 +89,8 @@ const TITLE_INSET = 1 / 3;
 const TITLE_ALPHA = 0.7;
 // How many points of each curve of an outline the title is laid along
 const CURVE_SAMPLES = 16;
-// The sides a group title can lie along, as the core stores them, with their names in the dialog
-const TITLE_SIDES = [
-  ['top', 'Top'],
-  ['bottom', 'Bottom'],
-  ['left', 'Left'],
-  ['right', 'Right'],
-];
+// The sides a group title can lie along, as the core stores them
+const TITLE_SIDES = [['top'], ['bottom'], ['left'], ['right']];
 const UI_FONT_SIZE = 13;
 // The size of the character of a callout on the canvas
 const CALLOUT_SIZE = 45;
@@ -111,9 +112,6 @@ const BUBBLE_WOBBLE = 1.2;
 const BUBBLE_STEP = 8;
 // The label of a link card, in the color of a link
 const LINK_LABEL_COLOR = 0x1d4ed8;
-// The page names offered under the input of the dialog of a link, and the height of each row
-const LINK_ROWS = 8;
-const LINK_ROW_HEIGHT = 26;
 // The handwritten font of the group titles and the callouts, copied to the root of the site by
 // index.html. From the root: a relative path would be read from the folder of the page.
 const TITLE_FONT = { family: '851 Tegaki Zatsu', url: '/851tegaki_zatsu_normal_0883.ttf' };
@@ -125,7 +123,8 @@ window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
   // onPlace(id, x, y) places a card with its center at a point of the canvas, or a group, named
   // by the id of its item, with the place of its item there.
-  // onMenu(pageId, clientX, clientY) opens the menu of a card that is right-clicked.
+  // onMenu is no longer called: every menu is drawn on the canvas. It keeps its place among the
+  // arguments, as the pages that make the canvas pass it.
   // onView(panX, panY, zoom) keeps the view once the hand tool or the wheel has stopped.
   // panX, panY and zoom are the view to start with, as onView last gave them.
   // options: { editable, labelFont, titleFont }. editable is true unless it is false. A font is
@@ -135,7 +134,6 @@ window.AtlasCanvas = class AtlasCanvas {
   constructor(host, onOpen, onPlace, onMenu, onView, panX, panY, zoom, options = {}) {
     this.onOpen = onOpen;
     this.onPlace = onPlace;
-    this.onMenu = onMenu;
     this.onView = onView;
     this.drag = null;
     // How far the hand tool has moved the view from the center of the canvas
@@ -183,7 +181,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.root = frame(null);
         this.frames = new Map();
         this.world.addChild(cross(), this.root);
-        // The menu and the dialog, in pixels of the screen above the scaled view
+        // The menu, in pixels of the screen above the scaled view
         this.overlay = new PIXI.Container();
         this.app.stage.addChild(this.world, this.overlay);
         this.app.renderer.on('resize', () => this.center());
@@ -284,9 +282,6 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // The second finger ends the pan of the first: the view follows the pair from here
   startPinch() {
-    if (this.dialog) {
-      return;
-    }
     this.closeMenu();
     this.panning = null;
     this.showHand();
@@ -321,10 +316,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // The point under the pointer stays where it is while the view is scaled
   zoomAt(e) {
     e.preventDefault();
-    // The view stays as it is under the dialog; the menu would be left behind
-    if (this.dialog) {
-      return;
-    }
+    // The menu would be left behind
     this.closeMenu();
     const delta = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * LINE_HEIGHT;
     if ((e.ctrlKey || e.metaKey) && this.selected.size > 0) {
@@ -431,7 +423,7 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   startPan(e) {
-    // The menu and the dialog take their own presses. A press anywhere else closes the menu.
+    // The menu takes its own presses. A press anywhere else closes it.
     if (this.overlay.children.length > 0 && within(e.target, this.overlay)) {
       return;
     }
@@ -532,33 +524,41 @@ window.AtlasCanvas = class AtlasCanvas {
         this.onFollow?.(panning.runLink, e.ctrlKey || e.metaKey, e.shiftKey);
       } else if (panning.button === 0 && panning.onLabel && opens(data)) {
         this.onOpen(data.path, e.ctrlKey || e.metaKey, e.shiftKey);
-      } else if (panning.button === 2 && data && !data.masked) {
-        // A page that cannot be changed still shows the whole text of its cards
-        this.openMenu([['Show Text', () => this.onShowText?.(data.id, e.clientX, e.clientY)]], e.global.x, e.global.y);
+      } else if (panning.button === 2 && data && !data.masked && this.onText && !panning.card.destroyed) {
+        // Only a page that can show the dialog offers View Text
+        const actions = { 'View Text': () => this.openViewDialog(data) };
+        this.openMenu(
+          cardMenu(data, false).map(name => [name, actions[name]]),
+          e.global.x,
+          e.global.y,
+        );
       }
-    } else if (panning.button === 2 && panning.card?.linkData && !panning.card.destroyed) {
-      const data = panning.card.linkData;
-      const showText = ['Show Text', () => this.onShowText?.(data.id, e.clientX, e.clientY)];
-      // A plain card links to no page, so it has no link to edit
-      const items = data.isPlain
-        ? [showText]
-        : [['Edit Link', () => this.openLinkDialog(data)], ['Remove Link', () => this.onRemoveLink?.(data.id)], showText];
-      this.openMenu(items, e.global.x, e.global.y);
-    } else if (panning.button === 2 && panning.card) {
-      this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
+    } else if (panning.button === 2 && panning.card && !panning.card.destroyed) {
+      const data = panning.card.cardData;
+      const actions = {
+        Edit: () => this.openCardDialog({ id: data.id }),
+        'Remove from Atlas': () => this.onRemove?.(data.id),
+        'Delete Card': () => this.onRemoveLink?.(data.id),
+      };
+      this.openMenu(
+        cardMenu(data, true).map(name => [name, actions[name]]),
+        e.global.x,
+        e.global.y,
+      );
     } else if (panning.button === 2 && panning.extra?.calloutData && !panning.extra.destroyed) {
       const data = panning.extra.calloutData;
-      this.openMenu([['Edit Callout', () => this.openCalloutDialog(data)]], e.global.x, e.global.y);
+      this.openMenu([['Edit', () => this.openCalloutDialog(data)]], e.global.x, e.global.y);
     } else if (panning.button === 2 && panning.area && !panning.area.destroyed) {
       const group = panning.area.label;
-      this.openMenu([['Edit Title', () => this.openTitleDialog(group)]], e.global.x, e.global.y);
+      this.openMenu([['Edit', () => this.openTitleDialog(group)]], e.global.x, e.global.y);
     } else if (panning.button === 2) {
       const { x, y } = panning.point;
+      const actions = {
+        'Add Card': () => this.openCardDialog({ x, y }),
+        'Add Callout': () => this.openCalloutDialog({ x, y }),
+      };
       this.openMenu(
-        [
-          ['Add Link', () => this.openLinkDialog({ x, y })],
-          ['Add Callout', () => this.openCalloutDialog({ x, y })],
-        ],
+        canvasMenu().map(name => [name, actions[name]]),
         e.global.x,
         e.global.y,
       );
@@ -593,19 +593,28 @@ window.AtlasCanvas = class AtlasCanvas {
         .stroke({ color: 0xdddddd, width: 1 }),
     );
     items.forEach(([name, action], i) => {
-      const item = new PIXI.ui.FancyButton({
-        defaultView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff),
-        hoverView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xf0f0f0),
-        text: uiText(name),
-        // The text at the left, as in the other menus of the app
-        defaultTextAnchor: { x: 0, y: 0.5 },
-        textOffset: { x: -70 + 12, y: 0 },
+      // Drawn with PixiJS alone, so a page that loads no more than it, as a static site, has it
+      const item = new PIXI.Container();
+      const back = new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff);
+      const label = uiText(name);
+      // The text at the left, as in the other menus of the app
+      label.anchor.set(0, 0.5);
+      label.position.set(12, 15);
+      item.addChild(back, label);
+      item.eventMode = 'static';
+      item.cursor = 'pointer';
+      item.hitArea = new PIXI.Rectangle(0, 0, 140, 30);
+      item.on('pointerover', () => {
+        back.tint = 0xf0f0f0;
       });
-      item.onPress.connect(() => {
+      item.on('pointerout', () => {
+        back.tint = 0xffffff;
+      });
+      item.on('pointertap', () => {
         this.closeMenu();
         action();
       });
-      // A button lies with its top left at its position
+      // An item lies with its top left at its position
       item.position.set(0, 4 + i * 30);
       menu.addChild(item);
     });
@@ -616,6 +625,8 @@ window.AtlasCanvas = class AtlasCanvas {
     );
     this.menu = menu;
     this.overlay.addChild(menu);
+    // A click at once, before the next frame, finds its item
+    this.drawNow();
     this.menuKeys = e => {
       if (e.key === 'Escape') {
         this.closeMenu();
@@ -633,13 +644,13 @@ window.AtlasCanvas = class AtlasCanvas {
     this.menu = null;
   }
 
-  // The dialog of the title of a group: the title and the side of the outline it lies along
+  // The Edit of a group: the body of its item as Markdown, which is its title, and the side of
+  // the outline the title lies along
   openTitleDialog(group) {
     const data = this.groupData(group);
     this.openTextDialog({
-      name: 'Edit Title',
-      placeholder: 'Title',
-      text: data?.title,
+      name: 'Edit',
+      text: this.bodyOf?.(group) ?? data?.title,
       side: data?.titleSide,
       done: (side, text) => this.onGroupTitle?.(group, side, text),
     });
@@ -656,12 +667,11 @@ window.AtlasCanvas = class AtlasCanvas {
     return null;
   }
 
-  // The dialog of a callout: its text and the side of the character its bubble is on. A
-  // callout without a key is a new one at its point.
+  // The Edit of a callout: its text and the side of the character its bubble is on. A callout
+  // without a key is a new one at its point.
   openCalloutDialog(callout) {
     this.openTextDialog({
-      name: callout.key ? 'Edit Callout' : 'Add Callout',
-      placeholder: 'Text',
+      name: callout.key ? 'Edit' : 'Add Callout',
       text: callout.text,
       side: callout.side,
       done: (side, text) => {
@@ -674,156 +684,36 @@ window.AtlasCanvas = class AtlasCanvas {
     });
   }
 
-  // The dialog of a link card, or of a new one at a point: the page it links to, with the page
-  // names that match what is typed offered under it. A click on a name takes it at once.
-  openLinkDialog(link) {
+  // The Edit of a card, named by its id, or the Add Card of a new one at a point: the body of
+  // its item as Markdown. A card has no side to pick.
+  openCardDialog({ id, x, y }) {
     this.openTextDialog({
-      name: link.id ? 'Edit Link' : 'Add Link',
-      placeholder: 'Page',
-      text: link.path,
-      suggest: true,
-      done: (side, target) => {
-        if (link.id) {
-          this.onSetLink?.(link.id, target);
+      name: id ? 'Edit' : 'Add Card',
+      id,
+      text: id ? this.bodyOf?.(id) : '',
+      sided: false,
+      done: (side, text) => {
+        if (id) {
+          this.onEditCard?.(id, text);
         } else {
-          this.onAddLink?.(link.x, link.y, target);
+          this.onAddCard?.(x, y, text);
         }
       },
     });
   }
 
-  // A dialog of a text, with a side to pick or with page names to pick from. OK or Enter gives
-  // them to `done(side, text)`; the core takes an empty text as none. Cancel, Escape and a press
-  // beside the dialog leave things as they were.
-  openTextDialog({ name, placeholder, text, side, suggest = false, done }) {
-    const sideIndex = Math.max(
-      0,
-      TITLE_SIDES.findIndex(([s]) => s === side),
-    );
-    const width = 340;
-    const height = suggest ? 200 + LINK_ROWS * LINK_ROW_HEIGHT - 40 : 200;
-    const input = new PIXI.ui.Input({
-      bg: new PIXI.Graphics()
-        .roundRect(0, 0, width - 60, 32, 4)
-        .fill(0xffffff)
-        .stroke({ color: 0xc0c4cc, width: 1 }),
-      placeholder,
-      value: text ?? '',
-      padding: { left: 8, right: 8 },
-      // A long text is cut off inside the padding, and scrolls with the cursor while edited.
-      // Without the mask, it runs past the edge of the input.
-      addMask: true,
-      textStyle: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: 0x222222 },
-    });
-    const sides = new PIXI.ui.RadioGroup({
-      items: TITLE_SIDES.map(([, name]) => new PIXI.ui.CheckBox({
-        text: name,
-        style: {
-          unchecked: new PIXI.Graphics().circle(8, 8, 7).fill(0xffffff).stroke({ color: 0x9aa0a6, width: 1.5 }),
-          checked: new PIXI.Graphics()
-            .circle(8, 8, 7).fill(0xffffff).stroke({ color: 0x1a73e8, width: 1.5 })
-            .circle(8, 8, 4).fill(0x1a73e8),
-          text: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: 0x222222 },
-          textOffset: { x: 4 },
-        },
-      })),
-      type: 'horizontal',
-      elementsMargin: 16,
-      selectedItem: sideIndex,
-    });
-    sides.y = 48;
-    const content = new PIXI.Container();
-    content.addChild(input);
-    // The page names, shown by the core through setLinkSuggestions as they are found
-    const rows = new PIXI.Container();
-    rows.y = 40;
-    if (suggest) {
-      content.addChild(rows);
-      input.onChange.connect(value => this.onLinkQuery?.(value));
-    } else {
-      content.addChild(sides);
-    }
-    const dialog = new PIXI.ui.Dialog({
-      background: new PIXI.Graphics()
-        .roundRect(0, 0, width, height, 10)
-        .fill(0xffffff)
-        .stroke({ color: 0xdddddd, width: 1 }),
-      backdropColor: 0x000000,
-      backdropAlpha: 0.15,
-      title: uiText(name, 15),
-      content,
-      width,
-      height,
-      padding: 20,
-      buttons: [dialogButton('Cancel', false), dialogButton('OK', true)],
-      closeOnBackdropClick: true,
-    });
-    dialog.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
-    // The Dialog puts its content in a ScrollBox. That box takes a drag once its content is even
-    // a little larger than it, as the edge of the input is, and the drag shifts the content
-    // around. The content fits, so the box is kept from taking a press; its items still take
-    // theirs. @pixi/ui has no option for this, and the box turns itself on again when it lays
-    // out its items, so that switch is turned off too.
-    dialog.scrollBox.setInteractive = () => {};
-    dialog.scrollBox.eventMode = 'passive';
-    const finish = ok => {
-      if (this.dialog !== dialog) {
-        return;
-      }
-      this.dialog = null;
-      window.removeEventListener('keydown', keys, true);
-      if (suggest) {
-        this.showSuggestions = null;
-        this.onLinkQuery?.('');
-      }
-      if (ok) {
-        done(TITLE_SIDES[sides.selected][0], input.value);
-      }
-      dialog.close();
-      // After the close has hidden it, which the next frame does
-      setTimeout(() => {
-        if (!dialog.destroyed) {
-          dialog.destroy({ children: true });
-        }
-      }, 0);
-    };
-    this.closeDialog = () => finish(false);
-    if (suggest) {
-      this.showSuggestions = titles => {
-        rows.removeChildren().forEach(r => r.destroy({ children: true }));
-        titles.slice(0, LINK_ROWS).forEach((title, i) => {
-          const row = suggestionRow(title, width - 60);
-          row.onPress.connect(() => {
-            input.value = title;
-            finish(true);
-          });
-          row.y = i * LINK_ROW_HEIGHT;
-          rows.addChild(row);
-        });
-      };
-    }
-    // Enter is taken only once the text is no longer being composed by an IME
-    const keys = e => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        finish(false);
-      } else if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
-        e.preventDefault();
-        finish(true);
-      }
-    };
-    dialog.onSelect.connect(index => finish(index === 1));
-    dialog.onClose.connect(() => finish(false));
-    window.addEventListener('keydown', keys, true);
-    this.dialog = dialog;
-    this.overlay.addChild(dialog);
-    dialog.open();
-    // After the click that opened the dialog: the input stops editing on a press elsewhere
-    setTimeout(() => {
-      if (this.dialog === dialog) {
-        input._startEditing();
-      }
-    }, 0);
+  // View Text of a card on a canvas that is not editable: the body of its item, to read only.
+  // The body is what bodyOf gives, or else the `text` of the card as setCards gave it.
+  openViewDialog(data) {
+    const text = this.bodyOf?.(data.id) ?? data.text;
+    this.onText?.(textAsked({ name: 'View Text', id: data.id, text, view: true }), () => {});
+  }
+
+  // A dialog of a text, with a side to pick unless it is not `sided`, which the shell opens and
+  // draws: onText(asked, done) as setOnText gives it. OK gives them to `done(side, text)`; the
+  // core takes an empty text as none.
+  openTextDialog({ name, id, text, side, sided = true, done }) {
+    this.onText?.(textAsked({ name, id, text, side, sided }), done);
   }
 
   // A group is dragged by its frame, without Ctrl: all that is in it moves with it, and nothing
@@ -857,11 +747,12 @@ window.AtlasCanvas = class AtlasCanvas {
     }
     // The pointer moves in pixels of the screen, the frame in units of the scaled view
     drag.node.position.set(drag.origin.x + dx / this.zoom, drag.origin.y + dy / this.zoom);
-    // Only the outlines of the groups around it change: its own moves with it
-    this.drawGroups(drag);
     // A plain copy: `global` is reused for the next event
     drag.pointer = new PIXI.Point(e.global.x, e.global.y);
-    this.showDropTargets(drag, e);
+    // Only the outlines of the groups around it change: its own moves with it. With Ctrl they
+    // keep the shape they had before the drag, and the group leaves the one it is right in
+    // when it is let go outside it, as a card does.
+    this.showDrag(drag, e);
   }
 
   endGroupDrag(e) {
@@ -891,16 +782,45 @@ window.AtlasCanvas = class AtlasCanvas {
     // With Ctrl or with Shift and Ctrl, it joins what it is let go on as a card does, with
     // all that is in it, and the same batch saves its place.
     const { x, y } = onCanvas(drag.node.outer, drag.node.x, drag.node.y);
-    const ids = JSON.stringify([drag.group]);
-    const places = JSON.stringify([{ id: drag.group, x, y }]);
-    if (target && mode === 'sibling') {
-      this.onGroup?.(ids, target.cardData.id, places);
-    } else if (target) {
-      this.onMove?.(ids, target.cardData.id, places);
-    } else if (join) {
-      this.onMove?.(ids, join.label, places);
-    } else {
-      this.onPlace(drag.group, x, y);
+    const pieces = [{ id: drag.group, x, y, group: chainOf(drag.node.outer)[0] ?? null }];
+    this.drop(
+      dropAction({
+        mode,
+        target: target?.cardData.id ?? null,
+        join: join?.label ?? null,
+        outside: drag.outside,
+        pieces,
+      }),
+      pieces,
+    );
+  }
+
+  // Tells what a drop does (dropAction). The pieces are those the action was made from, each
+  // with its place on the canvas, and a callout with how its move is saved. With Ctrl, what is
+  // let go on a card becomes a sibling of that card, and what is let go in the area of another
+  // group goes under the item of that group. With Shift and Ctrl, what is let go on a card goes
+  // under that card, and nothing else changes. One change does it and saves the places, so it
+  // is undone as one.
+  drop(action, pieces) {
+    const ids = list => JSON.stringify(list.map(piece => piece.id));
+    const places = list => JSON.stringify(list.map(({ id, x, y }) => ({ id, x, y })));
+    if (action.kind === 'group') {
+      this.onGroup?.(ids(pieces), action.target, places(pieces));
+      return;
+    }
+    if (action.kind === 'move') {
+      this.onMove?.(ids(pieces), action.parent, places(pieces));
+      return;
+    }
+    for (const piece of action.place) {
+      if (piece.save) {
+        piece.save(piece.x, piece.y);
+      } else {
+        this.onPlace(piece.id, piece.x, piece.y);
+      }
+    }
+    if (action.leave.length > 0) {
+      this.onUngroup?.(ids(action.leave), places(action.leave));
     }
   }
 
@@ -944,15 +864,16 @@ window.AtlasCanvas = class AtlasCanvas {
     return node;
   }
 
-  // The ids of the groups whose outlines a drag changes: those of the dragged cards and
-  // callouts, or those around a dragged group, and with `own` that group itself
+  // The ids of the groups whose outlines a drag changes, which are those it can leave with Ctrl
+  // (heldGroups): those of the dragged cards and callouts, or those around a dragged group, and
+  // with `own` that group itself
   groupsOfDrag(drag, own = false) {
-    if (drag.node) {
-      const around = chainOf(drag.node.outer);
-      return new Set(own ? [...around, drag.group] : around);
-    }
     const moving = [...drag.origins, ...(drag.extras ?? [])];
-    return new Set(moving.flatMap(o => groupsOf(dataOf(o.view)).map(g => g.id)));
+    const held = heldGroups({
+      dragged: moving.map(o => groupsOf(dataOf(o.view)).map(g => g.id)),
+      around: drag.node ? chainOf(drag.node.outer) : [],
+    });
+    return own && drag.node ? new Set([...held, drag.group]) : held;
   }
 
   select(ids) {
@@ -1082,11 +1003,7 @@ window.AtlasCanvas = class AtlasCanvas {
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
     };
-    if (drag.node) {
-      this.showDropTargets(drag, e);
-    } else {
-      this.showDrag(drag, e);
-    }
+    this.showDrag(drag, e);
   }
 
   // The groups and the targets of a drag of cards on the canvas, for where the pointer is and
@@ -1110,11 +1027,6 @@ window.AtlasCanvas = class AtlasCanvas {
   // let go on the canvas, which the same change saves.
   setOnGroup(onGroup) {
     this.onGroup = onGroup;
-  }
-
-  // onShowText(cardId, clientX, clientY) shows the whole text of a card from its menu
-  setOnShowText(onShowText) {
-    this.onShowText = onShowText;
   }
 
   // onFollow(link, newTab, newWindow) follows a link in the text of a card. link is
@@ -1194,21 +1106,32 @@ window.AtlasCanvas = class AtlasCanvas {
     }
   }
 
-  // onAddLink(x, y, target) adds a link card with its center at a point; onSetLink(id, target)
-  // links one to another page; onRemoveLink(id) takes one away, deleting its link. A link card
-  // moves and scales as any card does. onLinkQuery(text) asks for the page names that match
-  // what is typed in the dialog of a link, which come back through setLinkSuggestions; an
-  // empty text clears them.
-  setOnLink(onAddLink, onSetLink, onRemoveLink, onLinkQuery) {
-    this.onAddLink = onAddLink;
-    this.onSetLink = onSetLink;
+  // onAddCard(x, y, text) is Add Card: a card with its center at a point, the Markdown written
+  // its body. onEditCard(id, text) is the Edit of a card: the Markdown written is the body of
+  // its item. onRemoveLink(id) is Delete Card of a link card or a plain card, which deletes its
+  // item. bodyOf(id) is the body of the item of a card or a group, as Markdown, which its Edit
+  // shows. A card is named as the canvas names it: a page card by its page, any other by its
+  // item.
+  setOnCard(onAddCard, onEditCard, onRemoveLink, bodyOf) {
+    this.onAddCard = onAddCard;
+    this.onEditCard = onEditCard;
     this.onRemoveLink = onRemoveLink;
-    this.onLinkQuery = onLinkQuery;
+    this.bodyOf = bodyOf;
   }
 
-  // The page names for the open dialog of a link, as a JSON list of strings
-  setLinkSuggestions(json) {
-    this.showSuggestions?.(JSON.parse(json));
+  // onText(asked, done) opens the dialog of a text: the Edit of a card, a group or a callout,
+  // Add Card, Add Callout, or View Text on a canvas that is not editable. asked is { name, id,
+  // text, side, mode }: id names the card of View Text and of the Edit of a card, side is null
+  // for a card, which has none, and mode is 'edit' or 'view'. done(side, text) is called on OK;
+  // Cancel calls nothing. Without onText, a canvas that is not editable has no View Text.
+  setOnText(onText) {
+    this.onText = onText;
+  }
+
+  // onRemove(id) is Remove from Atlas of a card: the card leaves the canvas, and its item stays
+  // to be placed again
+  setOnRemove(onRemove) {
+    this.onRemove = onRemove;
   }
 
   // The placed cards as JSON: [{ id, label, path, isDir, isLink, isPlain, tone, runs, x, y,
@@ -1223,7 +1146,8 @@ window.AtlasCanvas = class AtlasCanvas {
   // path is the page it links to. width and height are its size as scaled, and a width of 0
   // leaves it to the label. icon and blob are SVGs or null, and iconDrawSize is the size of the
   // SVG, which is shown at iconSize. The core gives the color of each group, so it is the same
-  // as on the tag icons.
+  // as on the tag icons. A card may also have `text`, the body of its item as Markdown, which
+  // View Text shows when no bodyOf is set, as on a page that draws the canvas without the app.
   setCards(json) {
     this.data = JSON.parse(json);
     if (this.started) {
@@ -1271,16 +1195,29 @@ window.AtlasCanvas = class AtlasCanvas {
     this.buildCallouts();
     this.keepSelection();
     this.drawGroups();
+    this.drawNow();
   }
 
-  // Each group is a smooth closed curve around all its cards and callouts, one Graphics for its
-  // area and one for its frame, drawn in the frame of the group: its points are counted from the
+  // PixiJS finds what a press lands on from the places that drawing a frame works out. Drawn at
+  // once, what was just made takes a press before the ticker draws the next frame: a right
+  // click on a card just drawn anew opens its menu, and not the menu of the canvas.
+  drawNow() {
+    this.app.render();
+  }
+
+  // Each group is a smooth closed curve around all its cards and the groups in it, one Graphics
+  // for its area and one for its frame. A callout does not shape it, however deep in it: the
+  // callout is drawn at its own place in the frame of its group and moves with it. A group whose
+  // children are only callouts is drawn as a circle around the place of its item
+  // (circleGroups), and the groups around it are drawn around that circle. The outline is
+  // drawn in the frame of the group: its points are counted from the
   // place of the group, so the outline moves with the group and is not drawn again for it.
   // The frame is drawn in white and colored by its tint, so a change of its
   // color needs no new geometry. Given a drag, only the groups it changes are drawn again. With `ctrl`, the
   // outline of such a group stays as it was before the drag, with the dragged cards where
   // they were, so it shows whether they are let go in it. That shape does not change, so it
-  // is drawn once while Ctrl is held; only a group dragged as a whole moves with its cards.
+  // is drawn once while Ctrl is held. They are the groups the drag can leave, even one whose
+  // only child is dragged.
   // A group inside a group is drawn inside it: the outline of a group keeps a padding more
   // away from a card for each group between them, and lies behind the groups inside it.
   drawGroups(drag = null, ctrl = false) {
@@ -1288,39 +1225,69 @@ window.AtlasCanvas = class AtlasCanvas {
     const dragged = new Set(origins.keys());
     const touched = drag ? this.groupsOfDrag(drag) : null;
     const views = [...this.cardViews(), ...this.extras()];
-    const staying = new Set();
-    for (const view of views) {
-      if (!dragged.has(view)) {
-        groupsOf(dataOf(view)).forEach(g => staying.add(g.id));
+    const circles = circleGroups(
+      views.map(view => ({ groups: groupsOf(dataOf(view)).map(g => g.id), callout: Boolean(view.calloutData) })),
+    );
+    // What shapes the outlines: each card, and the circle of each group of callouts only, which
+    // lies at the origin of the frame of its group
+    const shapes = views
+      .filter(view => !view.calloutData)
+      // A card takes its size as scaled
+      .map(view => ({
+        view,
+        frameNode: view.frameNode,
+        chain: groupsOf(dataOf(view)),
+        width: view.cardData.width,
+        height: view.cardData.height,
+      }));
+    for (const view of views.filter(view => view.calloutData)) {
+      const chain = groupsOf(dataOf(view));
+      const circle = chain.at(-1);
+      if (circles.delete(circle?.id)) {
+        shapes.push({ view: null, frameNode: this.frames.get(circle.id), chain, x: 0, y: 0, circle: true });
       }
     }
     const corners = new Map();
     const groups = new Map();
-    for (const view of views) {
-      const { width, height } = sizeOf(view);
-      const chain = groupsOf(dataOf(view));
+    for (const shape of shapes) {
+      const { view, width, height, chain } = shape;
       chain.forEach((data, depth) => {
         const group = data.id;
         if (touched && !touched.has(group)) {
           return;
         }
-        const kept = ctrl && staying.has(group);
+        // Ctrl comes with a drag, and only the groups it touches are drawn for it
+        const kept = ctrl;
         if (kept && drag.ctrlShape) {
           return;
         }
         // Where the view lies in the frame of this group: its place in its own frame, moved by
         // every frame between the two
-        const from = kept && dragged.has(view) ? origins.get(view) : view;
-        const { x, y } = placeIn(view.frameNode, this.frames.get(group), from.x, from.y);
+        const from = kept && dragged.has(view) ? origins.get(view) : (view ?? shape);
+        let { x, y } = placeIn(shape.frameNode, this.frames.get(group), from.x, from.y);
+        // A dragged group lies, for the outlines around it, where it was before the drag
+        if (kept && drag.node && within(shape.frameNode, drag.node)) {
+          x -= drag.node.x - drag.origin.x;
+          y -= drag.node.y - drag.origin.y;
+        }
+        if (!corners.has(group)) {
+          corners.set(group, []);
+          groups.set(group, data);
+        }
+        if (shape.circle) {
+          // The circle itself for its own group, and a padding more for each group around it
+          const radius = CIRCLE_RADIUS + GROUP_PADDING * (chain.length - 1 - depth);
+          for (let i = 0; i < CIRCLE_POINTS; i++) {
+            const angle = (2 * Math.PI * i) / CIRCLE_POINTS;
+            corners.get(group).push([x + radius * Math.cos(angle), y + radius * Math.sin(angle)]);
+          }
+          return;
+        }
         const padding = GROUP_PADDING * (chain.length - depth);
         const left = x - width / 2 - padding;
         const right = x + width / 2 + padding;
         const top = y - height / 2 - padding;
         const bottom = y + height / 2 + padding;
-        if (!corners.has(group)) {
-          corners.set(group, []);
-          groups.set(group, data);
-        }
         corners.get(group).push([left, top], [right, top], [right, bottom], [left, bottom]);
       });
     }
@@ -1357,8 +1324,9 @@ window.AtlasCanvas = class AtlasCanvas {
       // Not `groupColor`: a Container uses that name for the tint it passes to its children,
       // and a color written there turns the area black while it is drawn again
       area.outlineColor = color;
-      // A group dragged as a whole has nothing to leave: it moves with its cards
-      area.leavable = ctrl && staying.has(group);
+      // With Ctrl, what is dragged can leave each group drawn for the drag. The group dragged
+      // as a whole is not drawn again: it moves with its cards.
+      area.leavable = ctrl;
       const groupTitle = data.title;
       const groupTitleSide = data.titleSide;
       // A callout that cards are under stands along the outline in place of a title
@@ -1601,33 +1569,16 @@ window.AtlasCanvas = class AtlasCanvas {
           const group = groupsOf(data).at(-1)?.id ?? null;
           return { id: v.extraId ?? data.id, ...onCanvas(v.frameNode, v.x, v.y), group, save: v.saveMove };
         });
-        const ids = list => JSON.stringify(list.map(piece => piece.id));
-        const places = list => JSON.stringify(list.map(({ id, x, y }) => ({ id, x, y })));
-        // With Ctrl, what is let go on a card becomes a sibling of that card, and what is let
-        // go in the area of another group goes under the item of that group. With Shift and
-        // Ctrl, what is let go on a card goes under that card, and nothing else changes. One
-        // change does it and saves the places, so it is undone as one.
-        if (target && ctrl) {
-          this.onGroup?.(ids(pieces), target.cardData.id, places(pieces));
-          return;
-        }
-        if (target || join) {
-          this.onMove?.(ids(pieces), target ? target.cardData.id : join.label, places(pieces));
-          return;
-        }
-        // Only what is let go outside its group with Ctrl leaves it; the rest is placed
-        const leaves = piece => ctrl && Boolean(drag.outside?.has(piece.group));
-        const leavers = pieces.filter(leaves);
-        for (const piece of pieces.filter(piece => !leaves(piece))) {
-          if (piece.save) {
-            piece.save(piece.x, piece.y);
-          } else {
-            this.onPlace(piece.id, piece.x, piece.y);
-          }
-        }
-        if (leavers.length > 0) {
-          this.onUngroup?.(ids(leavers), places(leavers));
-        }
+        this.drop(
+          dropAction({
+            mode,
+            target: target?.cardData.id ?? null,
+            join: join?.label ?? null,
+            outside: drag.outside,
+            pieces,
+          }),
+          pieces,
+        );
       } else if (drag.runLink && !data.masked) {
         // A link in the text of a card opens as a link of a page does
         this.onFollow?.(drag.runLink, drag.ctrl, e.shiftKey);
@@ -1643,13 +1594,13 @@ window.AtlasCanvas = class AtlasCanvas {
         this.selected.delete(id);
         this.showSelection();
       } else if ((view.calloutData || view.linkData) && !drag.ctrl) {
-        // A double click on a callout or a link card opens its dialog. The label of a link card
-        // opens its page instead, as the label of a card does.
+        // A double click on a callout, a link card or a plain card opens its Edit. The label of a
+        // link card opens its page instead, as the label of a card does.
         const last = this.lastExtraClick;
         if (last && last.id === id && e.timeStamp - last.time < DOUBLE_CLICK_TIME) {
           this.lastExtraClick = null;
           if (view.linkData) {
-            this.openLinkDialog(data);
+            this.openCardDialog({ id: data.id });
           } else {
             this.openCalloutDialog(data);
           }
@@ -1706,8 +1657,6 @@ window.AtlasCanvas = class AtlasCanvas {
   destroy() {
     this.destroyed = true;
     this.closeMenu();
-    // The dialog listens on the window for its keys; a page left with it open would keep them
-    this.closeDialog?.();
     clearTimeout(this.sharpenTimer);
     clearTimeout(this.scaleTimer);
     this.resizeObserver?.disconnect();
@@ -1729,6 +1678,79 @@ function dropMode(e) {
     return null;
   }
   return e.shiftKey ? 'child' : 'sibling';
+}
+
+// The names of the items of the menu of a card, in their order. Edit writes the body of its
+// item; Remove from Atlas only takes the card off the canvas. Delete Card, which deletes the
+// item, is for a link card or a plain card: the card of a page goes back among the pages. A
+// canvas that is not editable only shows the body, with View Text.
+function cardMenu(data, editable) {
+  if (!editable) {
+    return ['View Text'];
+  }
+  const remove = data.isLink ? ['Delete Card'] : [];
+  return ['Edit', 'Remove from Atlas', ...remove];
+}
+
+// The names of the items of the menu of the canvas, where nothing is
+function canvasMenu() {
+  return ['Add Card', 'Add Callout'];
+}
+
+// What the shell is asked to show in the dialog of a text: its name, the card it is of (View
+// Text names it), its text, the side to start at, and its mode. The side is the top unless it
+// is one of TITLE_SIDES; a dialog that is not `sided`, or is to `view` only, has none.
+function textAsked({ name, id, text, side, sided, view = false }) {
+  const known = TITLE_SIDES.some(([s]) => s === side);
+  return {
+    name,
+    id: id ?? null,
+    text: text ?? '',
+    side: sided && !view ? (known ? side : 'top') : null,
+    mode: view ? 'view' : 'edit',
+  };
+}
+
+// The groups that what a drag moves can be taken out of with Ctrl: every group a dragged card
+// or callout is in, however deep, and every group around a dragged group. `dragged` holds the
+// ids of the groups of each dragged card or callout, the outermost first, and `around` the ids
+// of the groups around a dragged group. Not only those that something else stays in: the item
+// of a group stays when the last of its children leaves it (ADR 053).
+function heldGroups({ dragged = [], around = [] }) {
+  return new Set([...dragged.flat(), ...around]);
+}
+
+// The groups drawn as a circle: those whose children are only callouts. A callout does not
+// shape the outline of a group, so such a group has nothing else to be drawn around. Each view
+// is { groups, callout }: `groups` the ids of the groups of a card or a callout, the outermost
+// first. A group with a card under it, or a group under it, is drawn around them instead.
+function circleGroups(views) {
+  const circles = new Set(views.filter(view => view.callout).map(view => view.groups.at(-1)));
+  for (const view of views) {
+    // A card leaves no group of its own a circle, and a callout none above its own group
+    const shaping = view.callout ? view.groups.slice(0, -1) : view.groups;
+    shaping.forEach(id => circles.delete(id));
+  }
+  circles.delete(undefined);
+  return circles;
+}
+
+// What a drop does, from the mode of its keys (dropMode), the id of the card under the
+// pointer, the id of the group whose area is under it, the ids of the groups the drag is
+// outside of, and the pieces let go, each { id, group }: `group` is the id of the group it
+// is right in, or null. With Ctrl, a card under the pointer takes them as its siblings
+// ('group'), and else the area of another group takes them under its item ('move'). With
+// Shift and Ctrl, the card takes them under it ('move'). Else each is placed, and with Ctrl
+// alone a piece let go outside its group leaves it ('place', with the pieces in `leave`).
+function dropAction({ mode, target = null, join = null, outside = null, pieces }) {
+  if (target && mode === 'sibling') {
+    return { kind: 'group', target };
+  }
+  if (target || join) {
+    return { kind: 'move', parent: target ?? join };
+  }
+  const leaves = piece => mode === 'sibling' && Boolean(outside?.has(piece.group));
+  return { kind: 'place', place: pieces.filter(piece => !leaves(piece)), leave: pieces.filter(leaves) };
 }
 
 // The groups a card is in, the outermost first
@@ -1791,16 +1813,6 @@ function dataOf(view) {
   return view.cardData ?? view.calloutData;
 }
 
-// How much room a view takes in the outline of its group: a card its size as scaled, a callout
-// its character. The bubble of a callout may reach out of the outline.
-function sizeOf(view) {
-  if (view.cardData) {
-    return { width: view.cardData.width, height: view.cardData.height };
-  }
-  const size = CALLOUT_SIZE * view.scale.x;
-  return { width: size, height: size };
-}
-
 // The page a press on the title of a group opens, from a character of the title; none for a
 // title that opens nothing
 function titlePathOf(target) {
@@ -1837,19 +1849,6 @@ function extraOf(target) {
   return null;
 }
 
-// A page name offered in the dialog of a link: a row the width of the input
-function suggestionRow(title, width) {
-  // Cut short, as a row does not wrap
-  const text = Array.from(title).length > 44 ? `${Array.from(title).slice(0, 43).join('')}…` : title;
-  return new PIXI.ui.FancyButton({
-    defaultView: new PIXI.Graphics().roundRect(0, 0, width, LINK_ROW_HEIGHT - 2, 4).fill(0xffffff),
-    hoverView: new PIXI.Graphics().roundRect(0, 0, width, LINK_ROW_HEIGHT - 2, 4).fill(0xe8f0fe),
-    text: uiText(text),
-    defaultTextAnchor: { x: 0, y: 0.5 },
-    textOffset: { x: -width / 2 + 8, y: 0 },
-  });
-}
-
 // Whether a display object lies inside a container
 function within(target, container) {
   for (let node = target; node; node = node.parent) {
@@ -1866,24 +1865,6 @@ function uiFont() {
 
 function uiText(text, fontSize = UI_FONT_SIZE) {
   return new PIXI.Text({ text, style: { fontFamily: uiFont(), fontSize, fill: 0x222222 } });
-}
-
-// A button of a dialog; the main one is filled with the color of the app
-function dialogButton(text, main) {
-  const view = (fill, line) =>
-    new PIXI.Graphics()
-      .roundRect(0, 0, 88, 32, 6)
-      .fill(fill)
-      .stroke({ color: line, width: 1 });
-  return new PIXI.ui.FancyButton({
-    defaultView: main ? view(0x1a73e8, 0x1a73e8) : view(0xffffff, 0xc0c4cc),
-    hoverView: main ? view(0x1765cc, 0x1765cc) : view(0xf0f0f0, 0xc0c4cc),
-    pressedView: main ? view(0x1558b0, 0x1558b0) : view(0xe4e4e4, 0xc0c4cc),
-    text: new PIXI.Text({
-      text,
-      style: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: main ? 0xffffff : 0x222222 },
-    }),
-  });
 }
 
 // The colors of the labels: a link out of the folder in blue, as it always was, and a link to

@@ -20,7 +20,7 @@ sources = [
 # - "not yet": the stickies do not offer it yet, though they could.
 [s2.excluded]
 AddAtlasCallout = "none: no atlas"
-AddAtlasLink = "none: no atlas"
+AddAtlasCard = "none: no atlas"
 AddPageTags = "none: no properties of a page"
 AddPropertyDefinition = "none: no settings"
 AtlasDirsRestored = "none: no atlas"
@@ -75,13 +75,12 @@ Route = "none: a page opens with Open, which keeps the history in the core (ADR 
 ScaleAtlasCallout = "none: no atlas"
 ScaleAtlasCard = "none: no atlas"
 ScrollToItemRequested = "none: no sidebar with the headings of a page"
-SearchAtlasLinks = "none: no atlas"
 SearchDropdown = "none: the search box shows its results without a dropdown"
 SelectionMouseUp = "drag: the end of a drag selection"
 SendToStash = "not yet: no menu of an item"
 SetAtlasCallout = "none: no atlas"
+SetAtlasCardText = "none: no atlas"
 SetAtlasGroupTitle = "none: no atlas"
-SetAtlasLink = "none: no atlas"
 SetCollapsed = "key: EditorKey::Fold or EditorKey::Unfold"
 SetHomeLink = "none: no settings"
 SetIndexSort = "none: no index pages"

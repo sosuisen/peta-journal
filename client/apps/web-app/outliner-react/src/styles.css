@@ -958,6 +958,13 @@ app-page .page-title:hover {
   flex-direction: column;
   gap: 8px;
 }
+/* Between the pages and what is not on the atlas */
+.atlas-unplaced-separator {
+  width: 100%;
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid #e0e0e0;
+}
 .atlas-unplaced-title {
   font-size: 12px;
   font-weight: 600;
@@ -998,43 +1005,6 @@ app-page .page-title:hover {
   position: relative;
   overflow: hidden;
   background: #f8f2e4;
-}
-/* At the pointer, as the browser's own menu would be */
-.atlas-text {
-  position: fixed;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  max-width: min(480px, calc(100vw - 32px));
-  max-height: 60vh;
-  overflow: auto;
-  padding: 8px 12px;
-}
-.atlas-menu {
-  position: fixed;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  min-width: 150px;
-  padding: 4px 0;
-}
-.atlas-menu-item {
-  background: none;
-  border: none;
-  padding: 6px 12px;
-  text-align: left;
-  cursor: pointer;
-  font-size: 13px;
-  white-space: nowrap;
-}
-.atlas-menu-item:hover {
-  background: #f0f0f0;
 }
 .atlas-canvas canvas {
   position: absolute;

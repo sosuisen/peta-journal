@@ -35,7 +35,6 @@ internal fun firstView(changes: Changes): ViewModel {
         atlasCallouts = panels.the<Panel.AtlasCallouts>().value,
         atlasLinks = panels.the<Panel.AtlasLinks>().value,
         atlasUnplaced = panels.the<Panel.AtlasUnplaced>().value,
-        atlasLinkSuggestions = panels.the<Panel.AtlasLinkSuggestions>().value,
         outline =
             outlineOf(panels.the<Panel.Outline>().value, emptyList<Row>().applied(changes.rows)),
         indexPages =
@@ -213,7 +212,6 @@ private fun ViewModel.with(panel: Panel): ViewModel =
         is Panel.AtlasCallouts -> copy(atlasCallouts = panel.value)
         is Panel.AtlasLinks -> copy(atlasLinks = panel.value)
         is Panel.AtlasUnplaced -> copy(atlasUnplaced = panel.value)
-        is Panel.AtlasLinkSuggestions -> copy(atlasLinkSuggestions = panel.value)
         is Panel.Outline -> copy(outline = outlineOf(panel.value, outline.rows))
         is Panel.IndexPages -> copy(indexPages = indexPagesOf(panel.value, indexPages.pages))
         is Panel.Headings -> copy(headings = headings.copy(state = panel.value.state))

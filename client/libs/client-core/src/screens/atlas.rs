@@ -24,8 +24,8 @@
 //! away in the same batch: the side is of the title of a group, and the item is no group any
 //! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
 
-use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
-use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
+use crate::app::{done, run, Cmd, Event, Model};
+use crate::effects::{Api, ApiResult, UiOp};
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
 use crate::model::{ItemExt, PageExt};
 use crate::ops::file_reload;
@@ -452,8 +452,9 @@ fn set_property(model: &mut Model, item_id: &str, value: Option<PropertyValue>) 
     });
 }
 
-/// Takes the card of a page off the canvas: its bounds are removed, so it waits among the
-/// items without a place again. The card leaves at once; a refusal of the server puts it back.
+/// Takes a card off the canvas: its bounds are removed, and its item stays. A page's card
+/// waits among the pages again; a link card or a plain card waits among what is not on the
+/// atlas. The card leaves at once; a refusal of the server puts it back.
 pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     let Some(item) = card_item(model, &page_id).filter(|i| bounds_of(i).is_some()) else {
         return done();
@@ -1147,6 +1148,8 @@ pub struct AtlasGroup {
     /// The id of the item
     pub id: String,
     pub title: Option<GroupTitle>,
+    /// The body of the item as it is written, which the Edit of the group shows
+    pub body: String,
     pub look: GroupLook,
     /// Where the item lies, counted from the item it is right under: the `x` and `y` of its
     /// `atlas_bounds`. What is under the item is counted from here.
@@ -1180,6 +1183,7 @@ fn groups(model: &Model, parents: &[&Item]) -> Vec<AtlasGroup> {
             AtlasGroup {
                 id: parent.id.clone(),
                 title: group_title(parent),
+                body: parent.body.clone(),
                 look: group_look(model, parent),
                 x: place.map_or(0.0, |b| b.x),
                 y: place.map_or(0.0, |b| b.y),
@@ -1225,8 +1229,8 @@ pub fn opened_path(model: &Model, page: &Page) -> String {
 }
 
 /// Gives a group of the shown atlas page a title along a side of its outline. An empty title
-/// takes the title away. The title is the body of the item of the group, and the side a
-/// property of it.
+/// takes the title away. The title is the body of the item of the group, written as Markdown
+/// in its Edit, and the side a property of it.
 pub fn set_group_title(model: &mut Model, group_id: String, side: String, title: String) -> Cmd {
     let Some(group) = entries(model)
         .into_iter()
@@ -1237,9 +1241,7 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
     };
     let side = side_or_default(&side).to_string();
     let title = title.trim().to_string();
-    // The title shown, and not the body: a body that is a link shows its label as the title
-    let shown = plain::group_title(&group).unwrap_or_default();
-    let body = (shown != title).then_some(title);
+    let body = (group.body.trim() != title).then_some(title);
     let side = (side_of(&group) != side).then_some(side);
     change(
         model,
@@ -1421,7 +1423,7 @@ pub enum CardTone {
     Link,
     /// A link to a page that is not there: gray. A click opens nothing.
     Missing,
-    /// A card whose first line is no link: yellow
+    /// A card whose first line is no link: orange, as a link card
     Plain,
 }
 
@@ -1477,7 +1479,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
 
 /// How a card that stands for no page of the directory is colored: blue for another card to
 /// a page of the directory, gray for one to a page the directory does not have, orange for a
-/// link out of it, yellow for a plain card. The directory is known to lack a page only once its
+/// link out of it and for a plain card. The directory is known to lack a page only once its
 /// list is in. A link to `today` is orange on any atlas: today's page can always be opened, and
 /// the list of no directory holds it (2026-11-28).
 fn tone_of(model: &Model, link: Option<plain::CardLink>) -> CardTone {
@@ -1529,98 +1531,56 @@ fn shown_atlas_page(model: &Model) -> Option<&Page> {
     super::page::shown_doc_page(model).filter(|p| super::page::is_atlas(p))
 }
 
-/// The target typed in the dialog of a link, without the brackets of a link around it, as the
-/// link adds its own. None when nothing is left, or when brackets are left inside.
-fn typed_link_target(target: &str) -> Option<String> {
-    let target = target.trim();
-    let target = link_target(target).unwrap_or(target).trim();
-    (!target.is_empty() && !target.contains("[[") && !target.contains("]]"))
-        .then(|| target.to_string())
-}
-
-/// Adds a link card to the shown atlas page with its center at the point. The card shows once
-/// the server has made its item.
-pub fn add_link(model: &mut Model, x: f64, y: f64, target: String) -> Cmd {
-    let Some(target) = typed_link_target(&target) else {
+/// Writes the Markdown of the Edit of a card as the body of its item. An empty text or the
+/// same body changes nothing: "Delete Card" takes a card away.
+pub fn set_card_text(model: &mut Model, card_id: String, text: String) -> Cmd {
+    let text = text.trim().to_string();
+    let Some(item) = card_item(model, &card_id).filter(|i| i.body.trim() != text) else {
         return done();
     };
-    if !x.is_finite() || !y.is_finite() {
+    if text.is_empty() {
         return done();
     }
-    add_card(model, &target, x, y)
-}
-
-/// Links a link card to another page. An empty target changes nothing, as "Remove Link" takes
-/// a card away. The card keeps the label of its link and the lines after the first.
-pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
-    let Some(card) = link_cards(model).into_iter().find(|c| c.item_id == item_id) else {
-        return done();
-    };
-    let Some(target) = typed_link_target(&target) else {
-        return done();
-    };
-    let Some(item) = model
-        .state
-        .get_item_by_id(&item_id)
-        .filter(|_| card.target.as_deref().is_some_and(|t| t != target))
-    else {
-        return done();
-    };
-    let body = plain::relinked(&item.body, &target);
+    let item_id = item.id.clone();
     change(
         model,
-        rewritten(&item_id, Some(body), None).into_iter().collect(),
+        rewritten(&item_id, Some(text), None).into_iter().collect(),
     )
 }
 
-/// Takes a link card off the atlas: its item is deleted, and with it the link.
+/// Adds a card to the shown atlas page with its center at the point: an item of level 1 at
+/// the end of the outline, the Markdown written in Add Card its body. A first line that is a
+/// link makes it a link card. An empty text adds nothing.
+pub fn add_text_card(model: &mut Model, x: f64, y: f64, text: String) -> Cmd {
+    let text = text.trim().to_string();
+    if text.is_empty() || !x.is_finite() || !y.is_finite() {
+        return done();
+    }
+    let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
+        return done();
+    };
+    let bounds = Bounds {
+        x: x.round(),
+        y: y.round(),
+        width: AUTO_WIDTH,
+        height: CARD_HEIGHT,
+    };
+    let card = new_item(
+        atlas_id,
+        NEW_CARD.to_string(),
+        ItemPosition::Last,
+        text,
+        &[(BOUNDS_KEY, bounds.to_string())],
+    );
+    change(model, vec![card])
+}
+
+/// Deletes a link card or a plain card: its item is deleted, and with it the link.
 pub fn remove_link(model: &mut Model, item_id: String) -> Cmd {
     if !link_cards(model).iter().any(|c| c.item_id == item_id) {
         return done();
     }
     delete(model, item_id)
-}
-
-/// How long typing in the dialog of a link may pause before the page names are searched.
-pub const LINK_SEARCH_DELAY_MS: u32 = 150;
-/// How many page names the dialog of a link offers.
-pub const LINK_SUGGESTIONS: u32 = 8;
-
-/// The page names that match the text typed in the dialog of a link, found after a pause in
-/// the typing. An empty text clears them.
-pub fn search_links(model: &mut Model, query: String) -> Cmd {
-    let cancel = cancel_timer(&mut model.atlas_link_search.timer_id);
-    let query = query.trim().to_string();
-    if query.is_empty() {
-        model.atlas_link_search.suggestions.clear();
-        return cancel;
-    }
-    let timer_id = model.next_timer_id();
-    model.atlas_link_search.timer_id = timer_id;
-    let search = run(move |api| async move {
-        if api.sleep(timer_id, LINK_SEARCH_DELAY_MS).await != TimerOutput::Fired {
-            return;
-        }
-        let titles = match api.search_page_names(&query, LINK_SUGGESTIONS).await {
-            Ok(results) => results.into_iter().map(|r| r.page_title).collect(),
-            Err(e) => {
-                log_error(format!("Atlas link search failed: {e}"));
-                Vec::new()
-            }
-        };
-        api.send_event(Event::AtlasLinksSuggested { timer_id, titles });
-    });
-    Command::all([cancel, search])
-}
-
-/// The page names the search the timer `timer_id` started found. The names of an older
-/// search are not shown.
-pub fn show_link_suggestions(model: &mut Model, timer_id: u64, titles: Vec<String>) -> Cmd {
-    if model.atlas_link_search.timer_id == timer_id {
-        model.atlas_link_search.timer_id = 0;
-        model.atlas_link_search.suggestions = titles;
-    }
-    done()
 }
 
 /// The card of a page of the directory of the shown atlas page.
@@ -1671,12 +1631,13 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
 
 /// What waits beside the canvas of the shown atlas page: the pages not added, then the items
 /// without a place (ADR 053).
-/// A page not added is a page of the directory that no page card links to, in the order the
-/// pages are listed. The link of a card without a place counts, and so does the link of a
-/// parent, so no page waits in both lists.
-/// An item without a place is one that is not drawn: an item without `atlas_bounds`, a parent
-/// too, and every item under such a parent, whatever its own `atlas_bounds`. They wait in the
-/// order of the items.
+/// A page not added waits among the pages: a page of the directory that no card links to, or
+/// one whose page card has no `atlas_bounds` of its own, in the order the pages are listed. A
+/// page card always goes back to the pages, so the shell names it by its page and its item is
+/// placed again. The link of a parent counts as a link, so no page waits in both lists.
+/// An item without a place is one that is not drawn, but for those page cards: an item without
+/// `atlas_bounds`, a parent too, and every item under such a parent, whatever its own
+/// `atlas_bounds`. They wait in the order of the items.
 pub fn unplaced(model: &Model) -> Vec<UnplacedCard> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
@@ -1689,24 +1650,38 @@ pub fn unplaced(model: &Model) -> Vec<UnplacedCard> {
         .filter_map(|link| page_of(model, link.target))
         .map(|page| page.id.as_str())
         .collect();
+    let cards = card_entries(model);
+    // The cards of pages that have no bounds of their own: their pages wait among the pages
+    let back: Vec<&Card> = cards
+        .iter()
+        .filter(|card| card.page_id.is_some() && bounds_of(card.item).is_none())
+        .collect();
     let not_added = sorted_dir_pages(model)
         .into_iter()
-        .filter(|page| !linked.contains(&page.id.as_str()))
+        .filter(|page| {
+            !linked.contains(&page.id.as_str())
+                || back
+                    .iter()
+                    .any(|card| card.page_id == Some(page.id.as_str()))
+        })
         .map(|page| UnplacedCard {
             added: false,
             ..waiting_page(model, &page, None)
         });
-    let cards = card_entries(model);
-    let no_place = entries.iter().filter(|e| e.place.is_none()).map(|e| {
-        match cards.iter().find(|card| card.item.id == e.item.id) {
-            Some(card) => waiting_card(model, card.item, card.page_id),
-            None if e.kind == Kind::Callout => {
-                waiting_text(e.item, first_line(&e.item.body).trim().to_string())
+    let no_place = entries
+        .iter()
+        .filter(|e| e.place.is_none())
+        .filter(|e| !back.iter().any(|card| card.item.id == e.item.id))
+        .map(|e| {
+            match cards.iter().find(|card| card.item.id == e.item.id) {
+                Some(card) => waiting_card(model, card.item, card.page_id),
+                None if e.kind == Kind::Callout => {
+                    waiting_text(e.item, first_line(&e.item.body).trim().to_string())
+                }
+                // A parent is named as a card with its body would be
+                None => waiting_card(model, e.item, None),
             }
-            // A parent is named as a card with its body would be
-            None => waiting_card(model, e.item, None),
-        }
-    });
+        });
     not_added.chain(no_place).collect()
 }
 

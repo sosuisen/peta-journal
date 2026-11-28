@@ -64,6 +64,21 @@ fn a_dropped_item_goes_to_the_end_of_the_page_at_the_top_placed_at_the_point() {
     assert!(no_place(&h).is_empty());
 }
 
+// 置かれていないページカードのページをPagesからドロップすると、今ある項目が置かれる。2つ目の項目は作られない。
+#[test]
+fn a_page_dropped_from_the_pages_places_the_item_of_its_card_and_makes_none() {
+    let mut h = atlas_with(&[("one", None)]);
+    h.api
+        .fail_next("GetPageById", "not read again in this test");
+    drop_on(&mut h, "a/b/one", 10.0, 20.0);
+
+    assert_eq!(
+        batches(&h),
+        [[leveled_at("i-one", 1, "10,20,0,40"), moved_last(&["i-one"])]]
+    );
+    assert_eq!(outline(&h), [shown("i-one", 1, Some("10,20,0,40"))]);
+}
+
 // 親の下の項目も、ドロップすると、親から出て、ページの末尾のレベル1に入る。親が描かれているかどうかによらない。その下の項目は、子のまま一緒に動く。最後の子が出て親でなくなった項目は、同じ送信で辺を失う。
 #[test]
 fn a_dropped_item_under_a_parent_leaves_it_with_what_is_under_it() {

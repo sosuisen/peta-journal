@@ -3,20 +3,23 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Atlas from './Atlas';
 import {
   AtlasCard,
+  AtlasGroup,
   AtlasPlace,
   cardToneLink,
   cardTonePlain,
   Bounds,
   Callout,
   eventLinkClicked,
+  groupLookText,
   LinkCard,
   richLinkFile,
   richLinkPage,
   richLinkWeb,
   UnplacedCard,
+  WikiView,
   type Panel,
 } from './border/peta-types';
-import { draw, shell } from './test/screens';
+import { draw, outline, shell } from './test/screens';
 
 const scripts = vi.hoisted(() => ({
   loaded: Promise.resolve(),
@@ -89,25 +92,25 @@ class FakeCanvas {
   setOnFollow(f: Handler) {
     this.handlers.onFollow = f;
   }
-  setOnShowText(f: Handler) {
-    this.handlers.onShowText = f;
+  setOnRemove(f: Handler) {
+    this.handlers.onRemove = f;
   }
-  setOnLink(add: Handler, set: Handler, remove: Handler, query: Handler) {
+  setOnCard(add: Handler, edit: Handler, remove: Handler, bodyOf: Handler) {
     Object.assign(this.handlers, {
-      onAddLink: add,
-      onSetLink: set,
+      onAddCard: add,
+      onEditCard: edit,
       onRemoveLink: remove,
-      onLinkQuery: query,
+      bodyOf,
     });
+  }
+  setOnText(f: Handler) {
+    this.handlers.onText = f;
   }
   setCards(json: string) {
     this.given.push(['cards', JSON.parse(json)]);
   }
   setCallouts(json: string) {
     this.given.push(['callouts', JSON.parse(json)]);
-  }
-  setLinkSuggestions(json: string) {
-    this.given.push(['suggestions', JSON.parse(json)]);
   }
   toWorldX(clientX: number) {
     return this.ready ? clientX - 100 : null;
@@ -266,8 +269,8 @@ describe('the canvas of an atlas', () => {
     expect(canvas().start).toEqual([0, 0, 1]);
   });
 
-  // 置いたカードとリンク、吹き出し、リンクの候補を、wasmが決めた形で、変わるたびにキャンバスに渡す。
-  test('the cards, the callouts and the link suggestions go to the canvas whenever they change', async () => {
+  // 置いたカードとリンク、吹き出しを、wasmが決めた形で、変わるたびにキャンバスに渡す。
+  test('the cards and the callouts go to the canvas whenever they change', async () => {
     const link = new LinkCard(
       'l',
       'x/Foo',
@@ -288,14 +291,11 @@ describe('the canvas of an atlas', () => {
       kind: 'AtlasCallouts',
       value: [new Callout('k', 1, 2, 1, 'left', 'hi', [])],
     });
-    show({ kind: 'AtlasLinkSuggestions', value: ['Foo'] });
 
     expect(canvas().given).toEqual([
       ['cards', { cards: ['a'], links: ['l'] }],
       ['callouts', []],
-      ['suggestions', []],
       ['callouts', ['k']],
-      ['suggestions', ['Foo']],
     ]);
   });
 
@@ -369,8 +369,8 @@ describe('what is done on the canvas', () => {
     ]);
   });
 
-  // カード、グループ、吹き出し、リンクの操作は、どれもコアに渡す。
-  test('the changes of the cards, the groups, the callouts and the links go to the core', async () => {
+  // カード、グループ、吹き出しの操作は、どれもコアに渡す。Add CardとEditは、書いたMarkdownを渡す。
+  test('the changes of the cards, the groups and the callouts go to the core', async () => {
     const { canvas, wasm } = await atlas('m/');
     const on = canvas().handlers as Record<
       string,
@@ -387,10 +387,10 @@ describe('what is done on the canvas', () => {
     on.onCallout('k', 'right', 'bye');
     on.onMoveCallout('k', 3, 4);
     on.onScaleCallout('k', 1.5);
-    on.onAddLink(5, 6, 'x/Foo');
-    on.onSetLink('l', 'x/Bar');
+    on.onAddCard(5, 6, '[[x/Foo]]');
+    on.onEditCard('l', 'note\nmore');
     on.onRemoveLink('l');
-    on.onLinkQuery('Fo');
+    on.onRemove('p');
 
     expect(wasm.events).toEqual([
       { kind: 'PlaceAtlasCard', card_id: 'a', x: 1, y: 2 },
@@ -417,106 +417,62 @@ describe('what is done on the canvas', () => {
       { kind: 'SetAtlasCallout', key: 'k', side: 'right', text: 'bye' },
       { kind: 'MoveAtlasCallout', key: 'k', x: 3, y: 4 },
       { kind: 'ScaleAtlasCallout', key: 'k', scale: 1.5 },
-      { kind: 'AddAtlasLink', x: 5, y: 6, target: 'x/Foo' },
-      { kind: 'SetAtlasLink', item_id: 'l', target: 'x/Bar' },
+      { kind: 'AddAtlasCard', x: 5, y: 6, text: '[[x/Foo]]' },
+      { kind: 'SetAtlasCardText', card_id: 'l', text: 'note\nmore' },
       { kind: 'RemoveAtlasLink', item_id: 'l' },
-      { kind: 'SearchAtlasLinks', query: 'Fo' },
+      { kind: 'RemoveAtlasCard', page_id: 'p' },
     ]);
   });
 
-  // カードを右クリックすると、その場所にメニューが出る。Remove from Atlasで、カードをキャンバスから外す。
-  test('the menu of a card opens where it was clicked, and takes the card off the canvas', async () => {
-    const { canvas, wasm, container } = await atlas('m/');
-
-    act(() => canvas().handlers.onMenu('a' as never, 30 as never, 40 as never));
-    const menu = container.querySelector('.atlas-menu') as HTMLElement;
-    const place = [menu.style.left, menu.style.top];
-    fireEvent.click(screen.getByText('Remove from Atlas'));
-
-    expect(place).toEqual(['30px', '40px']);
-    expect(container.querySelector('.atlas-menu')).toBeNull();
-    expect(wasm.events).toEqual([{ kind: 'RemoveAtlasCard', page_id: 'a' }]);
-  });
-
-  // カードのメニューのShow Textで、項目の全文を、ページの本文と同じHTMLにして、押した場所に出す。リンクのカードでも、ページのカードでも出せる。
-  test('Show Text shows the whole text of a card where it was asked, as a page draws a body', async () => {
-    const page = card('a', true, { text: '- a\n  more' });
+  // カード、グループ、吹き出しのEditには、その項目の本文を、Markdownのまま出す。ページのカードはページで、ほかは項目で名指す。今の本文である。
+  test('the Edit of a card, a group or a callout shows the body of its item as Markdown', async () => {
+    const group = new AtlasGroup(
+      'g',
+      null,
+      '[[x/Plan]]',
+      groupLookText(),
+      0,
+      0,
+    );
+    const page = card('a', true, { text: '[[m/a]]\nmore', groups: [group] });
     const link = new LinkCard(
       'l',
       null,
       'note',
       cardTonePlain(),
       [],
-      'note [[x]]',
+      'note **x**',
       new Bounds(0, 0, 0, 0),
       [],
     );
-    const { canvas, container } = await atlas(
+    const { canvas, show } = await atlas(
       'm/',
       { kind: 'AtlasCards', value: [page] },
       { kind: 'AtlasLinks', value: [link] },
+      {
+        kind: 'AtlasCallouts',
+        value: [new Callout('k', 1, 2, 1, 'left', 'hi', [])],
+      },
     );
-
-    act(() => canvas().handlers.onMenu('a' as never, 0 as never, 0 as never));
-    fireEvent.click(screen.getByText('Show Text'));
-    const fromMenu = container.querySelector('.atlas-text')?.innerHTML;
-    fireEvent.keyDown(document, { key: 'Escape' });
-    act(() =>
-      canvas().handlers.onShowText('l' as never, 30 as never, 40 as never),
-    );
-    const shown = container.querySelector('.atlas-text') as HTMLElement;
-
-    expect(fromMenu).toBe('<p>- a\n  more</p>');
-    expect(shown.innerHTML).toBe('<p>note [[x]]</p>');
-    expect([shown.style.left, shown.style.top]).toEqual(['30px', '40px']);
-  });
-
-  // 全文のリンクを押すと、ページの本文のリンクと同じく、コアに渡す。
-  test('a click on a link of the whole text of a card goes to the core as on a page', async () => {
-    const page = card('a', true, {
-      text: '<a data-wikilink="" href="/pages/x">x</a>',
-    });
-    const { canvas, container, wasm } = await atlas('m/', {
-      kind: 'AtlasCards',
-      value: [page],
-    });
-    act(() =>
-      canvas().handlers.onShowText('a' as never, 0 as never, 0 as never),
-    );
-
-    fireEvent.click(container.querySelector('.atlas-text a') as Element, {
-      ctrlKey: true,
+    const bodyOf = (id: string) =>
+      (canvas().handlers.bodyOf as (id: string) => string | undefined)(id);
+    const before = ['a', 'l', 'k', 'g', 'none'].map(bodyOf);
+    show({
+      kind: 'AtlasLinks',
+      value: [Object.assign(link, { text: 'note, edited' })],
     });
 
-    expect(wasm.events).toEqual([
-      eventLinkClicked(richLinkPage('/pages/x'), {
-        shift: false,
-        ctrl: true,
-        cmd: false,
-      }),
+    expect(before).toEqual([
+      '[[m/a]]\nmore',
+      'note **x**',
+      'hi',
+      '[[x/Plan]]',
+      undefined,
     ]);
+    expect(bodyOf('l')).toBe('note, edited');
   });
 
-  // メニューは、外のクリックとEscapeで、何もせずに閉じる。
-  test('the menu closes on a click outside and on Escape', async () => {
-    const { canvas, wasm, container } = await atlas('m/');
-    const open = () =>
-      act(() => canvas().handlers.onMenu('a' as never, 0 as never, 0 as never));
-
-    open();
-    fireEvent.click(document.body);
-    const outside = container.querySelector('.atlas-menu');
-    open();
-    fireEvent.keyDown(document, { key: 'Escape' });
-
-    expect([outside, container.querySelector('.atlas-menu')]).toEqual([
-      null,
-      null,
-    ]);
-    expect(wasm.events).toEqual([]);
-  });
-
-  // キャンバスでは、ブラウザのメニューを出さない。カードのメニューを覆うためである。
+  // キャンバスでは、ブラウザのメニューを出さない。キャンバスのメニューを覆うためである。
   test('the menu of the browser does not show on the canvas', async () => {
     const { container } = await atlas('m/');
 
@@ -529,6 +485,233 @@ describe('what is done on the canvas', () => {
 });
 
 // 横で待つもの: 未追加の項目と、座標のない項目
+/** What the canvas asks the dialog of a text to show */
+interface Asked {
+  readonly name: string;
+  readonly id: string | null;
+  readonly text: string;
+  readonly side: string | null;
+  readonly mode: 'edit' | 'view';
+}
+
+const asked = (changes: Partial<Asked> = {}): Asked => ({
+  name: 'Edit',
+  id: null,
+  text: 'x',
+  side: null,
+  mode: 'edit',
+  ...changes,
+});
+
+/** The atlas with the dialog of a text opened by its canvas; `done` keeps what OK gave. */
+async function dialogOf(given: Asked, ...panels: Panel[]) {
+  const drawn = await atlas('m/', ...panels);
+  const done: [string | null, string][] = [];
+  const open = drawn.canvas().handlers.onText as (
+    asked: Asked,
+    done: (side: string | null, text: string) => void,
+  ) => void;
+  act(() => open(given, (side, text) => done.push([side, text])));
+  const input = () => screen.getByRole<HTMLTextAreaElement>('textbox');
+  return { ...drawn, done, input };
+}
+
+/** The panel of the outline with page names offered for the link typed in `itemId` */
+function offered(itemId: string, titles: string[], selected = 0) {
+  return {
+    kind: 'Outline' as const,
+    value: outline({
+      wiki: new WikiView(itemId, titles, BigInt(selected), 10, 20),
+    }),
+  };
+}
+
+// テキストのダイアログ（Edit、Add Card、View Text）
+describe('the dialog of a text', () => {
+  // キャンバスが頼むと、その名のダイアログを開く。OKは書いたものを渡して閉じる。辺のないものは、辺をnullで渡す。
+  test('the canvas opens it by its name, and OK gives what is written and closes it', async () => {
+    const { done, input } = await dialogOf(
+      asked({ name: 'Add Card', text: '' }),
+    );
+    const named = screen.queryByRole('dialog', { name: 'Add Card' }) !== null;
+
+    fireEvent.change(input(), { target: { value: 'a\nb' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(named).toBe(true);
+    expect(done).toEqual([[null, 'a\nb']]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // グループと吹き出しの辺は、OKが選んだものを渡す
+  test('the side picked goes with OK', async () => {
+    const { done } = await dialogOf(asked({ text: 'Plan', side: 'left' }));
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Right' }));
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    expect(done).toEqual([['right', 'Plan']]);
+  });
+
+  // Previewは、書いたMarkdownを、コアがページの本文として描くHTMLで、ページの本文と同じ形に描く。中のリンクは開かない。
+  test('the Preview draws what is written with the HTML the core makes of a body of a page', async () => {
+    const { input, wasm } = await dialogOf(asked());
+    fireEvent.change(input(), { target: { value: '<a href="/x">x</a>' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+
+    const drawn = document.querySelector(
+      '.atlas-dialog-preview app-item-view .item-content',
+    ) as Element;
+    const link = drawn.querySelector('a') as Element;
+    const click = createEvent.click(link);
+    fireEvent(link, click);
+
+    expect(drawn.innerHTML).toBe('<p><a href="/x">x</a></p>');
+    // No folder of the tags is set
+    expect(wasm.tagDirs.at(-1)).toBe('');
+    expect(click.defaultPrevented).toBe(true);
+    // Only the queries of the typing, as in the editor of a page
+    expect(wasm.events.filter(e => e.kind !== 'WikiQuery')).toEqual([]);
+  });
+
+  // キャンバスが見るだけで頼むと、本文を変えられず、ボタンはCancelだけである
+  test('a dialog asked to view only cannot change the text and has Cancel alone', async () => {
+    const { done, input } = await dialogOf(
+      asked({ name: 'View Text', mode: 'view', text: 'read' }),
+    );
+    const buttons = screen.getAllByRole('button').map(b => b.textContent);
+    const readOnly = input().readOnly;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(buttons).toContain('Cancel');
+    expect(buttons).not.toContain('OK');
+    expect(readOnly).toBe(true);
+    expect(done).toEqual([]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // `[[`の中で打つと、ページの編集欄と同じく、コアにその問いを送る。ダイアログは、項目でない名で名乗る。
+  test('typing inside a link asks the core for page names, as the editor of a page does', async () => {
+    const { input, wasm } = await dialogOf(asked({ text: '' }));
+    wasm.wikiQuery = (text, cursor) =>
+      cursor === 4 && text === '[[To]]' ? 'To' : undefined;
+
+    fireEvent.change(input(), { target: { value: '[[To]]' } });
+    input().setSelectionRange(4, 4);
+    fireEvent.select(input());
+
+    expect(
+      wasm.events.map(e =>
+        e.kind === 'WikiQuery' ? [e.item_id, e.context?.query ?? null] : e.kind,
+      ),
+    ).toEqual([
+      ['atlas-dialog', null],
+      ['atlas-dialog', 'To'],
+    ]);
+  });
+
+  // コアが示した名前が出て、Enterで選んだ名前がカーソルのリンクに入り、候補は閉じる。矢印はコアに送る。
+  test('the names the core offers show, an arrow goes to the core, and Enter puts the selected one in the link', async () => {
+    const { input, wasm } = await dialogOf(
+      asked({ text: '[[To]]' }),
+      offered('atlas-dialog', ['Todo', 'Tools'], 1),
+    );
+    wasm.wikiPick = (_text, _cursor, title) =>
+      JSON.stringify({ text: `[[${title}]]`, cursor: 2 + title.length });
+    const names = [
+      ...document.querySelectorAll('.atlas-dialog-suggestion'),
+    ].map(n => n.textContent);
+    input().setSelectionRange(4, 4);
+
+    fireEvent.keyDown(input(), { key: 'ArrowDown' });
+    fireEvent.keyDown(input(), { key: 'Enter' });
+
+    expect(names).toEqual(['Todo', 'Tools']);
+    expect(wasm.picks).toEqual([['[[To]]', 4, 'Tools']]);
+    expect(input().value).toBe('[[Tools]]');
+    expect(wasm.events[0]).toEqual({ kind: 'WikiKey', key: 'ArrowDown' });
+    expect(wasm.events).toContainEqual({
+      kind: 'WikiQuery',
+      item_id: 'atlas-dialog',
+      context: null,
+    });
+  });
+
+  // 打った`[[`は、ページの編集欄と同じく、コアの閉じ方で閉じる
+  test('a typed opening is closed as the core closes it in the editor of a page', async () => {
+    const { input, wasm } = await dialogOf(asked({ text: '' }));
+    wasm.autoClose = (before, text) =>
+      before === '' && text === '[[' ? '[[]]' : undefined;
+
+    fireEvent.input(input(), {
+      target: { value: '[[' },
+      inputType: 'insertText',
+    });
+
+    expect(wasm.closes).toEqual([['', '[[', 2]]);
+    expect(input().value).toBe('[[]]');
+  });
+
+  // ほかの項目に示された名前は、ダイアログに出ない。閉じても、その問いは閉じない。
+  test('names offered for another item do not show in the dialog, nor close with it', async () => {
+    const { wasm } = await dialogOf(asked(), offered('item', ['Todo']));
+    const list = document.querySelector('.atlas-dialog-suggestions');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(list).toBeNull();
+    expect(wasm.events).toEqual([]);
+  });
+
+  // ダイアログを閉じると、ダイアログに示された名前の問いも閉じる
+  test('the names offered for the dialog close with it', async () => {
+    const { wasm } = await dialogOf(asked(), offered('atlas-dialog', ['Todo']));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(wasm.events).toEqual([
+      { kind: 'WikiQuery', item_id: 'atlas-dialog', context: null },
+    ]);
+  });
+
+  // 見るだけのダイアログには、名前を出さない
+  test('a dialog to view only shows no names, and closes no query of them', async () => {
+    const { wasm } = await dialogOf(
+      asked({ name: 'View Text', mode: 'view' }),
+      offered('atlas-dialog', ['Todo']),
+    );
+    const list = document.querySelector('.atlas-dialog-suggestions');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(list).toBeNull();
+    expect(wasm.events).toEqual([]);
+  });
+
+  // Previewの画像の大きさとコードの色は、ページの本文と同じに付く
+  test('the Preview sizes its images and colors its code as a page does', async () => {
+    const { input } = await dialogOf(asked());
+    fireEvent.change(input(), {
+      target: {
+        value:
+          '<img src="a.png#w=10&h=20"><pre><code class="language-js">let a</code></pre>',
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
+
+    const drawn = document.querySelector(
+      '.atlas-dialog-preview .item-content',
+    ) as Element;
+    const image = drawn.querySelector('img') as Element;
+
+    expect([image.getAttribute('width'), image.getAttribute('height')]).toEqual(
+      ['10', '20'],
+    );
+    expect(drawn.querySelector('pre .code-lang-label')?.textContent).toBe('js');
+  });
+});
+
 describe('what waits beside the canvas', () => {
   const CARD_MIME = 'application/x-peta-atlas-card';
 
@@ -600,10 +783,16 @@ describe('what waits beside the canvas', () => {
     return { ...drawn, listed, host };
   }
 
-  // 横のリストは、未追加の項目と、座標のない項目の2つのグループに分かれる。フォルダには印がつく。
-  test('the list beside the canvas has a group of the pages not added and a group of the items without a place', async () => {
+  // 横のリストは、ページ（Pages）と、アトラスにない項目（Not on Atlas）の2つのグループに分かれ、間に線がある。フォルダには印がつく。
+  test('the list beside the canvas has a group of the pages and a group of what is not on the atlas, with a line between', async () => {
     const { container } = await unplaced();
 
+    const list = container.querySelector('.atlas-unplaced') as HTMLElement;
+    expect([...list.children].map(e => e.className)).toEqual([
+      'atlas-unplaced-group',
+      'atlas-unplaced-separator',
+      'atlas-unplaced-group',
+    ]);
     const groups = [...container.querySelectorAll('.atlas-unplaced-group')];
     expect(
       groups.map(group => [
@@ -615,14 +804,14 @@ describe('what waits beside the canvas', () => {
       ]),
     ).toEqual([
       [
-        'Not Added',
+        'Pages',
         [
           ['atlas-card', 'B'],
           ['atlas-card folder', 'C'],
         ],
       ],
       [
-        'No Place',
+        'Not on Atlas',
         [
           ['atlas-card', 'D'],
           ['atlas-card', 'T'],

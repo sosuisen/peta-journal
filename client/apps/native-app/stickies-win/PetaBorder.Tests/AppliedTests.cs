@@ -83,7 +83,6 @@ public sealed class AppliedTests
             new Panel.AtlasCallouts([]),
             new Panel.AtlasLinks([]),
             new Panel.AtlasUnplaced([]),
-            new Panel.AtlasLinkSuggestions(["suggested"]),
             new Panel.Outline(Outline(selecting: true)),
             new Panel.IndexPages(
                 new IndexPagesPanel
@@ -111,7 +110,6 @@ public sealed class AppliedTests
         var view = Applied.First(Changes([Reset("a")], EveryPanel()));
 
         Assert.IsType<ScreenView.Settings>(view.Screen);
-        Assert.Equal(["suggested"], view.AtlasLinkSuggestions);
         Assert.True(view.Outline.SelectionMode);
         Assert.Equal("current", view.IndexPages.CurrentPageId);
         Assert.Equal(LoadState.Failed, view.Headings.State);

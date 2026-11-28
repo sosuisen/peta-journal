@@ -90,7 +90,11 @@ export const JOBS = {
   atlas: {
     dir: 'atlas',
     touchedBy: ATLAS,
-    steps: rust('--all-features'),
+    steps: [
+      ...rust('--all-features'),
+      // The judgements of atlas.js that need no PixiJS, run in Node (atlas/web/atlas.test.mjs)
+      { run: 'node --test "web/*.test.mjs"' },
+    ],
   },
   client: {
     dir: 'client',
