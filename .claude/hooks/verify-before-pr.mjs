@@ -86,6 +86,8 @@ function blankTexts(command) {
           j += 2;
         } else if (command.startsWith('$(', j)) {
           blank(from, j);
+          // From the parenthesis after `$`, up to the one that closes it
+          j++;
           let depth = 0;
           do {
             if (command[j] === '(') depth++;
