@@ -260,13 +260,13 @@ Emacs版は、確認のダイアログを`Questions`ではなく`InOrder`で1つ
 `UiOp`をだれがこなすかを決める`match`（Webの`lanes.rs`の`lane_of`、Emacs版の`shell.rs`の`on_ui_op`）も、網羅的である。
 そのため、`Effect`か`UiOp`の種類を足すと、WebとEmacs版がどう扱うかを決めるまで、コンパイルが通らない。
 ネイティブの`client-native-bridge`は、`UiOp`のほとんどを、種類を見ずにアプリへ渡す。
-4つのネイティブアプリは、受け取った`UiOp`を、どれにも当たらない種類をまとめて受ける分岐で扱う。
-Swiftは`default:`、Kotlinは`else ->`である。
-C#は`switch`文であり、`UiOp`は`client-native-bridge/src/codegen.rs`の`CLOSED_RECORDS`に入っていないので、`closed record`でもない。
-そのため、`UiOp`の種類を足しても、ネイティブアプリではコンパイルが通り、新しい種類は黙って何もされない。
+この追記を書いたとき、4つのネイティブアプリは、受け取った`UiOp`を、どれにも当たらない種類をまとめて受ける分岐（Swiftの`default:`、Kotlinの`else ->`、C#の`switch`文）で扱っていた。
+`UiOp`の種類を足しても、ネイティブアプリではコンパイルが通り、新しい種類は黙って何もされなかった。
 shell-checkのS2が調べるのは、シェルが送る`Event`の種類だけであり、`UiOp`の種類は調べない。
-ネイティブアプリの直し忘れは、今は何も止めない。
-ネイティブアプリでも型で網羅させる作業は、#1312で行う。
+#1312で、4つのネイティブアプリも、`UiOp`のすべての種類に分岐を持つようにした。
+Swiftは`default:`のない`switch`、Kotlinは`else ->`のない`when`である。
+C#は、`UiOp`と`ShellEffect`を`client-native-bridge/src/codegen.rs`の`CLOSED_RECORDS`に足して`closed record`にし、`switch`式で分ける。
+これで、`UiOp`の種類を足すと、6つのシェルすべてで、扱いを決めるまでコンパイルが通らない。
 
 今の時刻を読む処理（`UiOp::LocalNow`への答え）も、シェルごとに残す（#1030を閉じた）。
 ネイティブとEmacs版はchronoで読み、Web版はJavaScriptの`Date`で読むので、1か所にはできないためである。
