@@ -390,7 +390,7 @@ describe('the menu of an item', () => {
     const removed = vi.spyOn(document, 'removeEventListener');
     open(row('a', 'one'));
     const listeners = added.mock.calls.filter(
-      ([type]) => type === 'click' || type === 'keydown',
+      ([type]) => type === 'pointerdown' || type === 'keydown',
     );
 
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -401,8 +401,8 @@ describe('the menu of an item', () => {
     expect(listeners).toHaveLength(2);
   });
 
-  // メニューの外のクリックとEscapeは、メニューを閉じる。メニューの中のクリックは閉じない。
-  test('a click outside and Escape close the menu, and a click inside does not', () => {
+  // メニューの外を押すのとEscapeは、メニューを閉じる。メニューの中のクリックは閉じない。
+  test('a press outside and Escape close the menu, and a click inside does not', () => {
     open(row('a', 'one'));
     fireEvent.click(menu() as Element);
     const inside = menu() !== null;
@@ -411,7 +411,7 @@ describe('the menu of an item', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     const escaped = menu() === null;
     fireEvent.click(box('a').querySelector('.item-menu') as Element);
-    fireEvent.click(document.body);
+    fireEvent.pointerDown(document.body);
 
     expect([inside, otherKey, escaped]).toEqual([true, true, true]);
     expect(menu()).toBeNull();

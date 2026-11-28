@@ -502,14 +502,14 @@ describe('what is done on the canvas', () => {
     ]);
   });
 
-  // メニューは、外のクリックとEscapeで、何もせずに閉じる。
-  test('the menu closes on a click outside and on Escape', async () => {
+  // メニューは、外を押すのとEscapeで、何もせずに閉じる。
+  test('the menu closes on a press outside and on Escape', async () => {
     const { canvas, wasm, container } = await atlas('m/');
     const open = () =>
       act(() => canvas().handlers.onMenu('a' as never, 0 as never, 0 as never));
 
     open();
-    fireEvent.click(document.body);
+    fireEvent.pointerDown(document.body);
     const outside = container.querySelector('.atlas-menu');
     open();
     fireEvent.keyDown(document, { key: 'Escape' });

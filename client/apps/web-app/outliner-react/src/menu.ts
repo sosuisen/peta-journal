@@ -1,13 +1,23 @@
 import { useEffect } from 'react';
 
 /**
- * Closes an open menu on a click outside `selector` and on Escape. The menu calls it while it
- * is drawn. The button that opens the menu must be inside `selector` or stop its click: React
- * adds these listeners before that click reaches the document, which would close the menu.
+ * Closes an open menu on a press outside `selector` and on Escape. The menu calls it while it
+ * is drawn.
+ *
+ * A press, not a click: a box opened by a click of a button outside it, such as a menu item,
+ * would be closed by that same click, as React adds these listeners before the click reaches
+ * the document. And a box opened at a press of a pointer, as the canvas of the atlas opens
+ * it, would be closed by the click that ends that press. The press that opened the box is
+ * still on its way while the listeners are added, so it is let through.
  */
 export function useClosesOnOutside(selector: string, close: () => void): void {
   useEffect(() => {
-    const clicked = (event: MouseEvent) => {
+    // The event that drew the menu, if it is still being sent
+    const opening = window.event;
+    const pressed = (event: PointerEvent) => {
+      if (event === opening) {
+        return;
+      }
       if (
         !(event.target instanceof Element) ||
         event.target.closest(selector) === null
@@ -15,16 +25,16 @@ export function useClosesOnOutside(selector: string, close: () => void): void {
         close();
       }
     };
-    const pressed = (event: KeyboardEvent) => {
+    const typed = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         close();
       }
     };
-    document.addEventListener('click', clicked);
-    document.addEventListener('keydown', pressed);
+    document.addEventListener('pointerdown', pressed);
+    document.addEventListener('keydown', typed);
     return () => {
-      document.removeEventListener('click', clicked);
-      document.removeEventListener('keydown', pressed);
+      document.removeEventListener('pointerdown', pressed);
+      document.removeEventListener('keydown', typed);
     };
   }, [selector, close]);
 }
