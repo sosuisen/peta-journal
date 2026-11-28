@@ -625,6 +625,8 @@ window.AtlasCanvas = class AtlasCanvas {
     );
     this.menu = menu;
     this.overlay.addChild(menu);
+    // A click at once, before the next frame, finds its item
+    this.drawNow();
     this.menuKeys = e => {
       if (e.key === 'Escape') {
         this.closeMenu();
@@ -1193,6 +1195,14 @@ window.AtlasCanvas = class AtlasCanvas {
     this.buildCallouts();
     this.keepSelection();
     this.drawGroups();
+    this.drawNow();
+  }
+
+  // PixiJS finds what a press lands on from the places that drawing a frame works out. Drawn at
+  // once, what was just made takes a press before the ticker draws the next frame: a right
+  // click on a card just drawn anew opens its menu, and not the menu of the canvas.
+  drawNow() {
+    this.app.render();
   }
 
   // Each group is a smooth closed curve around all its cards and the groups in it, one Graphics
