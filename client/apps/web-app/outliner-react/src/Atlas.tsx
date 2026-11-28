@@ -13,8 +13,10 @@ import {
   type UnplacedCard,
 } from './border/peta-types';
 import { ATLAS_OPTIONS, loadAtlasScripts } from './atlasScripts';
-import AtlasTextDialog, { type TextAsked } from './AtlasTextDialog';
+import { AtlasDialog, type LinkSuggestions } from './atlas-dialog';
 import { useCore, usePanel } from './context';
+import { highlightCode, sizeImages } from './drawnBody';
+import { checkWikiLink } from './WikiSuggestions';
 import { openInOf } from './keys';
 
 /** The canvas of atlas.js, as this shell uses it. */
@@ -161,6 +163,19 @@ interface Grab {
 }
 
 const NONE: readonly never[] = [];
+
+/**
+ * What the canvas of atlas.js asks the dialog of a text to show: the Edit of a card, a group
+ * or a callout, Add Card, Add Callout, or View Text. id names the card of View Text. side is
+ * null for a card, which has none.
+ */
+interface TextAsked {
+  readonly name: string;
+  readonly id: string | null;
+  readonly text: string;
+  readonly side: string | null;
+  readonly mode: 'edit' | 'view';
+}
 
 /** A dialog of a text that the canvas asked for, open until it is closed */
 interface Asking {
@@ -336,10 +351,9 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
         )}
       </div>
       {asking !== null && (
-        <AtlasTextDialog
+        <TextDialog
           key={asking.count}
-          asked={asking.asked}
-          done={asking.done}
+          asking={asking}
           close={() => setAsking(null)}
         />
       )}
@@ -454,6 +468,73 @@ function bodyIn(panels: Panels, id: string): string | undefined {
     links.find(l => l.item_id === id)?.text ??
     callouts.find(c => c.key === id)?.text ??
     group?.body
+  );
+}
+
+/** The name the dialog of a text goes by in the wiki link queries, which no item has */
+const DIALOG = 'atlas-dialog';
+
+/** What the Preview leaves to the shell, as a page does with a body */
+function finishBody(content: HTMLElement): void {
+  sizeImages(content);
+  highlightCode(content);
+}
+
+/**
+ * The dialog of a text, with the Preview drawn by the core as a body of a page, and the page
+ * names of a `[[` offered by the core, as for the editor of a page.
+ */
+function TextDialog({
+  asking,
+  close,
+}: {
+  readonly asking: Asking;
+  readonly close: () => void;
+}) {
+  const core = useCore();
+  const tagsDir = usePanel('Config')?.tags_dir ?? '';
+  const wiki = usePanel('Outline')?.wiki;
+  const { asked, done } = asking;
+  const links: LinkSuggestions = {
+    shown:
+      wiki?.item_id === DIALOG
+        ? {
+            titles: wiki.suggestions,
+            selected: Number(wiki.selected_index),
+            x: wiki.x,
+            y: wiki.y,
+          }
+        : null,
+    typed: box => checkWikiLink(core, DIALOG, box),
+    key: key => core.send({ kind: 'WikiKey', key }),
+    picked: (text, cursor, title) => {
+      const picked = core.wikiPicked(text, cursor, title);
+      return picked === undefined
+        ? undefined
+        : (JSON.parse(picked) as { text: string; cursor: number });
+    },
+    closed: (before, text, cursor) => core.autoClosed(before, text, cursor),
+    close: () => {
+      if (core.current().panels.Outline?.wiki.item_id === DIALOG) {
+        core.send({ kind: 'WikiQuery', item_id: DIALOG, context: null });
+      }
+    },
+  };
+  return (
+    <AtlasDialog
+      name={asked.name}
+      mode={asked.mode}
+      text={asked.text}
+      side={asked.side}
+      previewHtml={text => core.bodyHtml(text, tagsDir)}
+      drawn={finishBody}
+      links={asked.mode === 'edit' ? links : undefined}
+      onOk={(side, text) => {
+        close();
+        done(side, text);
+      }}
+      onCancel={close}
+    />
   );
 }
 
