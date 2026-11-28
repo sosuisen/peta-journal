@@ -223,6 +223,7 @@ fn started_with_a_page() -> (Harness, ClientId) {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
     h.send(Event::Start {
         client_id: me.clone(),
+        opens_new_day: true,
     });
     (h, me)
 }

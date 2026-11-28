@@ -43,7 +43,8 @@ pub fn look() -> Cmd {
 }
 
 /// The clock says `today`: the journal of today opens the new day when the date changed and
-/// no item is being edited.
+/// no item is being edited. A shell that started the core with `opens_new_day` false keeps
+/// the old day (#1307).
 pub fn seen(model: &mut Model, today: String) -> Cmd {
     model.today = today;
     let old_day = matches!(
@@ -53,7 +54,7 @@ pub fn seen(model: &mut Model, today: String) -> Cmd {
     // Opening a page closes the editor, and the text typed would be cut short. The next look
     // at the clock tries again
     let editing = !model.state.editing_item_ids().is_empty();
-    if !old_day || editing {
+    if !model.opens_new_day || !old_day || editing {
         return Command::done();
     }
     route::open(model, "today", None)

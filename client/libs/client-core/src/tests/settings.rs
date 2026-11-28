@@ -213,6 +213,7 @@ fn starting_takes_the_settings_of_the_server() {
     );
     h.send(Event::Start {
         client_id: crate::rest::ClientId::new(),
+        opens_new_day: true,
     });
 
     let c = &h.model.config;
@@ -231,6 +232,7 @@ fn settings_that_cannot_be_loaded_stay_at_their_defaults() {
     h.api.fail_next("GetPropertyDefinitions", "offline");
     h.send(Event::Start {
         client_id: crate::rest::ClientId::new(),
+        opens_new_day: true,
     });
 
     assert_eq!(h.model.config.week_numbering, WeekNumbering::Us);
