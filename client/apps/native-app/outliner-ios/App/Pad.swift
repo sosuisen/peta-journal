@@ -28,18 +28,37 @@ extension Pad {
     static let hold = Duration.milliseconds(400)
     static let repeating = Duration.milliseconds(100)
 
+    /// A wait that ends this much later than it was to end says that the main thread was busy.
+    private static let late = Duration.milliseconds(50)
+    /// How long the run loop gets to bring the end of a touch, after the main thread was busy.
+    private static let breath = Duration.milliseconds(10)
+
     /// What a touch on an arrow does: `step` once, and after `hold` again and again, until the
     /// task is cancelled, as when the touch ends.
+    ///
+    /// The end of a touch waits for the main thread, as each wait here does. After the main
+    /// thread was busy for longer than a wait, as while the screen draws the next item, the
+    /// wait comes first: the arrow would be done once more for a touch that ended long ago
+    /// (#1174). So a wait that ends late is followed by a short one, in which the run loop
+    /// brings the end of the touch, until one ends in time.
     @MainActor
     static func held(
         hold: Duration = Pad.hold, repeating: Duration = Pad.repeating, _ step: @escaping @MainActor () -> Void
     ) -> Task<Void, Never> {
         Task { @MainActor in
+            let clock = ContinuousClock()
             step()
-            try? await Task.sleep(for: hold)
+            var wait = hold
             while !Task.isCancelled {
+                var end = clock.now + wait
+                try? await clock.sleep(until: end)
+                while !Task.isCancelled, clock.now > end + late {
+                    end = clock.now + breath
+                    try? await clock.sleep(until: end)
+                }
+                if Task.isCancelled { return }
                 step()
-                try? await Task.sleep(for: repeating)
+                wait = repeating
             }
         }
     }
