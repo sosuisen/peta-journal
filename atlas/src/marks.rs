@@ -77,12 +77,10 @@ pub fn missing_blob_svg(target: &str, size: i32) -> String {
     blob_svg(target, MISSING_BLOB_COLOR, size, false)
 }
 
-/// The light yellow of the blob of a plain card, whose first line is no link
-const PLAIN_BLOB_COLOR: Color = Color::rgb(0xFF, 0xF1, 0xA8);
-
-/// The blob of a plain card: drawn from its label as a tag blob is, in light yellow.
+/// The blob of a plain card, whose first line is no link: drawn from its label as a tag blob
+/// is, in the light orange of a link card.
 pub fn plain_blob_svg(label: &str, size: i32) -> String {
-    blob_svg(label, PLAIN_BLOB_COLOR, size, false)
+    blob_svg(label, LINK_BLOB_COLOR, size, false)
 }
 
 /// The white of the blob of a card whose label is hidden
@@ -229,7 +227,8 @@ mod tests {
 
     // ノーマルカードのblobはリンクカードと同じ薄いオレンジ、ないページへのカードのblobは薄い灰色で、同じ名前のカードと同じ形である
     #[test]
-    fn the_blob_of_a_plain_card_is_the_light_orange_of_a_link_card_and_of_a_missing_page_light_gray() {
+    fn the_blob_of_a_plain_card_is_the_light_orange_of_a_link_card_and_of_a_missing_page_light_gray(
+    ) {
         let plain = plain_blob_svg("x/Target", 100);
         let missing = missing_blob_svg("x/Target", 100);
         let shape = tag_blob_svg("x/Target", 100, false);
