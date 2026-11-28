@@ -315,34 +315,56 @@ fn a_parent_without_a_place_dropped_on_the_atlas_gets_its_place_and_shows_what_i
     assert_eq!(waiting, ["not"]);
 }
 
-// 親が描かれていない項目を落としても、何も変わらない。座標を数える元になる親の位置がないためである。親になったコールアウトも、落とせば位置が付く。
+// 親が描かれていない項目を一覧からアトラスに落とすと、1回の送信で、トップレベルのカードになる。いちばん外の親の木の末尾の次に、レベル1で入り、落とした点を`atlas_bounds`として持つ。下の項目は一緒に動く。最後の子が出た親は、同じ送信で辺を失う。
 #[test]
-fn an_item_under_a_parent_without_a_place_is_not_placed_until_the_parent_is() {
-    let callout = [("atlas_type", "callout")];
+fn an_item_under_a_parent_that_is_not_drawn_dropped_on_the_atlas_becomes_a_card_of_the_top() {
     let mut h = atlas_of(
         vec![],
         vec![
-            atlas_item("parent", 1, "Parent", &callout),
-            atlas_item("under", 2, "Under", &callout),
-            atlas_item("deep", 3, "deep", &[]),
+            atlas_item("parent", 1, "Parent", &[("atlas_side", "left")]),
+            atlas_item("under", 2, "Under", &[]),
+            atlas_item("deep", 3, "deep", &[("atlas_bounds", "5,5,0,40")]),
+            atlas_item("last", 1, "last", &[("atlas_bounds", "9,9,0,40")]),
         ],
     );
-    place(&mut h, "under", 1.0, 2.0);
-    place(&mut h, "deep", 1.0, 2.0);
+    place(&mut h, "under", 10.4, 20.0);
 
     assert!(upserts(&h).is_empty());
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("under", 1, "10,20,0,40"),
+            leveled("deep", 2),
+            moved(&["under", "deep"], "parent"),
+            unsided("parent"),
+        ]]
+    );
+}
 
-    place(&mut h, "parent", 3.0, 4.0);
-    place(&mut h, "under", 13.0, 24.0);
+// 描かれている親の下の、描かれていない親の下の項目も、落とすとトップレベルに出る。いちばん外の親の木の末尾の次に入り、自分の大きさを保つ。親が描かれている項目は、親の下のまま、相対の座標で置かれる。
+#[test]
+fn an_item_comes_out_to_the_top_from_under_any_parent_that_is_not_drawn() {
+    let mut h = atlas_of(
+        vec![],
+        vec![
+            parent_item("outer", 1, "", &[("atlas_bounds", "100,100,0,40")]),
+            atlas_item("inner", 2, "Inner", &[]),
+            atlas_item("card", 3, "card", &[("atlas_bounds", "1,2,0,60")]),
+            atlas_item("other", 3, "other", &[]),
+            atlas_item("kept", 2, "kept", &[]),
+        ],
+    );
+    place(&mut h, "kept", 130.0, 150.0);
+    place(&mut h, "card", 7.0, 8.0);
 
     assert_eq!(
-        upserts(&h),
-        vec![
-            ("parent".into(), "atlas_bounds".into(), "3,4,0,40".into()),
-            ("under".into(), "atlas_bounds".into(), "10,20,0,40".into()),
-        ]
+        batches(&h),
+        [[leveled_at("card", 1, "7,8,0,60"), moved(&["card"], "kept")]]
     );
-    assert!(batches(&h).is_empty());
+    assert_eq!(
+        upserts(&h),
+        vec![("kept".into(), "atlas_bounds".into(), "30,50,0,40".into())]
+    );
 }
 
 // 座標のないリンクカードとノーマルカードを一覧からアトラスに落とすと、その項目に位置が付く。新しい項目は作られない。
