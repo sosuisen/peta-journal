@@ -64,4 +64,16 @@ final class HeldTests: XCTestCase {
         await pass(.milliseconds(500))
         XCTAssertEqual(done, 1)
     }
+
+    // 押し続けている間にメインスレッドが忙しくなっても、そのあと矢印は繰り返される。
+    func testAHeldTouchGoesOnRepeatingAfterTheMainThreadWasBusy() async {
+        let held = touch()
+        await wait(for: 1)
+
+        Thread.sleep(forTimeInterval: 0.4)
+        await wait(for: 4)
+        held.cancel()
+
+        XCTAssertGreaterThan(done, 3)
+    }
 }
