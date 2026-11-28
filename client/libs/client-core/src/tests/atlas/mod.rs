@@ -228,6 +228,11 @@ fn leveled(id: &str, level: i32) -> BatchOpInput {
     }
 }
 
+/// The operation that makes the item of a new group at the bounds
+fn made_group(position: ItemPosition, bounds: &str) -> BatchOpInput {
+    made(position, "", &[("atlas_bounds", bounds)])
+}
+
 /// The operation that gives an item a level and the bounds counted from its new parent
 fn leveled_at(id: &str, level: i32, bounds: &str) -> BatchOpInput {
     BatchOpInput::Update {

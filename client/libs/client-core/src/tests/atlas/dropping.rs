@@ -143,6 +143,8 @@ fn a_dropped_parent_without_a_place_takes_what_is_under_it_along() {
         batches(&h),
         [[
             leveled_at("g", 1, "100,50,0,40"),
+            leveled("i-one", 2),
+            leveled("not", 2),
             moved_last(&["g", "i-one", "not"])
         ]]
     );
@@ -214,6 +216,92 @@ fn an_item_dropped_with_ctrl_on_a_lone_card_makes_a_new_group_of_the_two() {
             moved(&["i-three", "note"], NEW),
         ]
     );
+}
+
+/// The group `g` at 100,200 with the cards of one and two under it, and the card of three at
+/// the top. The page of four has no card.
+fn atlas_with_a_page_not_added() -> Vec<Item> {
+    vec![
+        parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+        card_item("one", 2, Some("0,0,0,40")),
+        card_item("two", 2, Some("0,100,0,40")),
+        card_item("three", 1, Some("300,300,0,40")),
+    ]
+}
+
+/// The atlas of [`atlas_with_a_page_not_added`] after the page of four was dropped at 130,250
+/// with Ctrl, while the server is slow: the shell has sent what follows the drop, but the
+/// card is not made yet. `made` is the outline the server answers with once it is.
+fn page_dropped_with_ctrl(follows: Event, made: Vec<Item>) -> Harness {
+    let pages = ["four", "one", "three", "two"].map(child).to_vec();
+    let mut h = atlas_of(pages, atlas_with_a_page_not_added());
+    answer_outline(&mut h, made);
+    h.hold("ApplyBatch");
+    drop_on(&mut h, "a/b/four", 130.0, 250.0);
+    h.send(follows);
+    h
+}
+
+// 未追加のページをCtrlを押してグループやカードの上にドロップすると、ページの末尾にカードができたあとで、キャンバスのカードと同じにグループに入る。シェルは2つの操作を続けて送るので、カードができる前に届いた操作は、カードができるまで待つ。
+#[test]
+fn a_page_with_no_card_dropped_with_ctrl_joins_once_its_card_is_made() {
+    let made = || {
+        let mut items = atlas_with_a_page_not_added();
+        items.push(card_item("four", 1, Some("130,250,0,40")));
+        items
+    };
+    let onto_the_group = Event::MoveAtlasCards {
+        card_ids: vec!["a/b/four".into()],
+        parent_id: "g".into(),
+    };
+    let onto_the_card = Event::GroupAtlasCards {
+        card_ids: vec!["a/b/four".into()],
+        target_id: "a/b/three".into(),
+    };
+
+    let mut h = page_dropped_with_ctrl(onto_the_group, made());
+    assert!(batches(&h).is_empty());
+    h.release_held();
+    assert_eq!(
+        batches(&h)[1],
+        [
+            leveled_at("i-four", 2, "30,50,0,40"),
+            moved(&["i-four"], "i-one")
+        ]
+    );
+
+    let mut h = page_dropped_with_ctrl(onto_the_card, made());
+    h.release_held();
+    assert_eq!(
+        batches(&h)[1],
+        [
+            made_group(ItemPosition::after("i-three"), "215,275,0,40"),
+            leveled_at("i-four", 2, "-85,-25,0,40"),
+            leveled_at("i-three", 2, "85,25,0,40"),
+            moved(&["i-four", "i-three"], NEW),
+        ]
+    );
+}
+
+// カードができなかったときは、待っていた操作は捨てられる。あとでそのページのカードができても、グループには入らない。
+#[test]
+fn what_waits_for_a_card_that_is_not_made_is_given_up() {
+    let onto_the_group = Event::MoveAtlasCards {
+        card_ids: vec!["a/b/four".into()],
+        parent_id: "g".into(),
+    };
+    // The outline comes back without the card
+    let mut h = page_dropped_with_ctrl(onto_the_group, atlas_with_a_page_not_added());
+    h.release_held();
+    let mut later = atlas_with_a_page_not_added();
+    later.push(card_item("four", 1, Some("130,250,0,40")));
+    h.send(Event::AtlasChanged {
+        atlas_id: ATLAS_ID.into(),
+        items: later,
+    });
+
+    assert_eq!(batches(&h).len(), 1);
+    assert_eq!(bounds_of(&h, "a/b/four").map(|b| b.x), Some(130.0));
 }
 
 // ドロップが拒否されると、アラートが表示され、項目は元の場所と元の`atlas_bounds`に戻る。
