@@ -146,9 +146,14 @@ Accepted
   - Editは、今までのShow Text、Edit Link、Edit Title、Edit Calloutを置き換える。Editのダイアログは、項目の本文をMarkdownのまま出し、OKで書いたMarkdownを本文にする（`.md`に書く）。カードには辺の選択がない。グループは、タイトルの沿う辺（`atlas_side`）を選ぶ。コールアウトは、フキダシの辺を選ぶ。
     - 全文を読むだけの箱（今までのShow Text）は、なくす。
   - Edit、Add Card、グループとコールアウトのEditのダイアログは、複数行の入力を持つ。長い本文は縦にスクロールする。Previewのタブは、書いたMarkdownを、ページの本文と同じに描く。開いたときは編集のタブである（2026-11-29）。
-    - ダイアログはシェルのHTMLで描く（Web版ではReact）。`@pixi/ui`の入力は1行しか持たないためである。`atlas.js`は、ダイアログを描かず、シェルに開いてもらう（`setOnText`）。グループとコールアウトの辺の選択も、このダイアログにある。
+    - ダイアログはシェルのHTMLで描く（Web版ではReact）。`@pixi/ui`の入力は1行しか持たないためである。`atlas.js`は、ダイアログを描かず、キャンバスを描くページに開いてもらう（`setOnText`）。グループとコールアウトの辺の選択も、このダイアログにある。
     - Enterは改行を入れる。Ctrl+Enter（macOSではCommand+Enterも）がOK、EscapeがCancelである。ページの確認のダイアログも、Escapeで閉じる。
-    - 書き換えられないアトラス（静的サイト）はダイアログを開かないので、Reactなしで動く。
+    - ダイアログは、アプリの外のページも使えるように、それだけのモジュールにする（`client/apps/web-app/outliner-react/src/atlas-dialog/`）。モジュールは、Reactと自分の中のファイルしか読まない。本文のMarkdown、PreviewのHTML、モード（編集か、見るだけか）、辺、`[[`の候補、OKとCancelは、すべてpropsで受け取る。Web版は、PreviewのHTMLをコアで描いて渡す（2026-11-29）。
+    - Editのダイアログで`[[`と打つと、ページの編集欄と同じく`]]`が足され、ページ名の候補が出る。コアの同じ仕組み（`WikiQuery`、`WikiKey`、閉じ方と、選んだ名前の入れ方）を使う。ダイアログは、項目でない名（`atlas-dialog`）で名乗る（2026-11-29）。
+    - これに伴い、コアから`AddAtlasLink`、`SetAtlasLink`、`SearchAtlasLinks`と、その候補のパネル（`AtlasLinkSuggestions`）を消す。リンクカードは、Add CardとEditで、Markdownのリンクとして書く。RESTとMCPのアトラスの道具は、このADRの別の節が扱う（2026-11-29）。
+  - 書き換えられないキャンバス（`editable: false`、sosuisen.netが使う）では、カードの右クリックのメニューはView Textだけである。同じダイアログを、見るだけのモードで開く。本文は変えられず、ボタンはCancelだけで、辺は出ない。Previewのタブはある（2026-11-29）。
+    - `atlas.js`はダイアログを描かず、ページの`setOnText`を呼ぶ。ページが`setOnText`を与えないときは、View Textを出さない。静的サイトは、Reactのアイランドとしてこのモジュールを使う。
+    - メニューはPixiJSだけで描く。静的サイトは`pixi.min.js`と`atlas.js`しか読まないためである。`@pixi/ui`とtweedle.jsは、使うものがなくなったので消す。
   - Add Cardは、今までのAdd Linkを置き換える。空のEditのダイアログを開き、OKで、書いたMarkdownを本文に、ページの末尾にレベル1の項目を作る。`atlas_bounds`は右クリックした点である。1回の送信である。空のままのOKでは、何も作らない。1行目がwikilinkだけなら、いつもどおりリンクカードになる。
   - Remove from Atlasは、項目の`atlas_bounds`だけを消す。項目は残る。ページへのカードはPagesに、リンクカードとノーマルカードはNot on Atlasに戻る。
   - Delete Cardは、項目を消す。今までのリンクカードの「Remove Link」を置き換える。ページへのカードにはDelete Cardを出さない。
