@@ -12,7 +12,7 @@
 //! takes the place of an item on the canvas from [`Entry::place`] and does no walk of its own.
 //! An item without `atlas_bounds` is not drawn, and neither is any item under it.
 
-use crate::{bounds_of, card_label, link_body, link_target, AtlasItem, Bounds};
+use crate::{bounds_of, card_label, link_target, AtlasItem, Bounds};
 use crate::{CALLOUT_TYPE, TYPE_KEY};
 
 /// What an item of a plain atlas page is, by its body and its `atlas_type`.
@@ -133,17 +133,6 @@ pub fn card_link(body: &str) -> Option<CardLink<'_>> {
         target,
         label: label.filter(|label| !label.is_empty()),
     })
-}
-
-/// The body of a card when it links to the page at `target`: it keeps its label and the
-/// lines after the first.
-pub fn relinked(body: &str, target: &str) -> String {
-    let label = card_link(body).and_then(|link| link.label);
-    let link = match label {
-        Some(label) => link_body(&format!("{target}|{label}")),
-        None => link_body(target),
-    };
-    format!("{link}{}", first_line(body).1)
 }
 
 /// The title of a group item; none while its body is empty. A group whose body is the link
@@ -456,16 +445,6 @@ mod tests {
                 Some((0.0, 0.0)),
                 Some((5.0, 6.0)),
             ]
-        );
-    }
-
-    // 宛先を変えたカードの本文は、ラベルと2行目より後を保つ。
-    #[test]
-    fn a_card_linked_to_another_page_keeps_its_label_and_its_later_lines() {
-        assert_eq!(relinked("[[d/a]]", "x/b"), "[[x/b]]");
-        assert_eq!(
-            relinked("[[d/a|Shown]]\nmore\nlines", "x/b"),
-            "[[x/b|Shown]]\nmore\nlines"
         );
     }
 }
