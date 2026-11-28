@@ -1332,7 +1332,14 @@ window.AtlasCanvas = class AtlasCanvas {
     // lies at the origin of the frame of its group
     const shapes = views
       .filter(view => !view.calloutData)
-      .map(view => ({ view, frameNode: view.frameNode, chain: groupsOf(dataOf(view)), ...sizeOf(view) }));
+      // A card takes its size as scaled
+      .map(view => ({
+        view,
+        frameNode: view.frameNode,
+        chain: groupsOf(dataOf(view)),
+        width: view.cardData.width,
+        height: view.cardData.height,
+      }));
     for (const view of views.filter(view => view.calloutData)) {
       const chain = groupsOf(dataOf(view));
       const circle = chain.at(-1);
@@ -1875,16 +1882,6 @@ function chainOf(node) {
 // The data of the view of a card or of a callout
 function dataOf(view) {
   return view.cardData ?? view.calloutData;
-}
-
-// How much room a view takes in the outline of its group: a card its size as scaled, a callout
-// its character. The bubble of a callout may reach out of the outline.
-function sizeOf(view) {
-  if (view.cardData) {
-    return { width: view.cardData.width, height: view.cardData.height };
-  }
-  const size = CALLOUT_SIZE * view.scale.x;
-  return { width: size, height: size };
 }
 
 // The page a press on the title of a group opens, from a character of the title; none for a
